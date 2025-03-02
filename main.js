@@ -1276,7 +1276,7 @@ var require_axios2 = __commonJS({
 __export(exports, {
   default: () => LinkMuse
 });
-var import_obsidian2 = __toModule(require("obsidian"));
+var import_obsidian3 = __toModule(require("obsidian"));
 
 // src/settings.ts
 var DEFAULT_SETTINGS = {
@@ -1312,33 +1312,39 @@ var SidebarView = class extends import_obsidian.ItemView {
     super(leaf);
     this.plugin = plugin;
   }
-
   getViewType() {
     return "linkmuse-sidebar";
   }
-
   getDisplayText() {
     return "LinkMuse";
   }
-  
-  // 添加getIcon方法，返回视图的图标名称
-  getIcon() {
-    return "brain-cog";
-  }
-
   async onOpen() {
     const container = this.containerEl.children[1];
     container.empty();
     const titleContainer = container.createDiv({ cls: "linkmuse-sidebar-title" });
-    
-    // 添加与左侧相同的图标
     const logoIcon = titleContainer.createDiv({ cls: "linkmuse-logo-icon" });
     (0, import_obsidian.setIcon)(logoIcon, "brain-cog");
-    
     titleContainer.createEl("h2", { text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
     const mainSection = container.createDiv({ cls: "linkmuse-main-section" });
     const noteSelectionSection = mainSection.createDiv({ cls: "linkmuse-note-selection" });
     noteSelectionSection.createEl("h3", { text: "\u7B14\u8BB0\u9009\u62E9" });
+    this.noteInfoContainer = noteSelectionSection.createDiv({ cls: "linkmuse-note-info" });
+    this.updateCurrentNoteInfo();
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => {
+      this.updateCurrentNoteInfo();
+    }));
+    this.registerEvent(this.app.workspace.on("file-open", () => {
+      this.updateCurrentNoteInfo();
+    }));
+    this.registerEvent(this.app.workspace.on("layout-change", () => {
+      this.updateCurrentNoteInfo();
+    }));
+    const refreshInterval = window.setInterval(() => {
+      this.updateCurrentNoteInfo();
+    }, 3e3);
+    this.register(() => {
+      window.clearInterval(refreshInterval);
+    });
     const llmProviderSection = mainSection.createDiv({ cls: "linkmuse-llm-provider" });
     llmProviderSection.createEl("h4", { text: "LLM\u63D0\u4F9B\u5546" });
     const providerButtonContainer = llmProviderSection.createDiv({ cls: "linkmuse-provider-buttons" });
@@ -1387,58 +1393,60 @@ var SidebarView = class extends import_obsidian.ItemView {
         color: var(--text-error);
         border-left: 3px solid var(--text-error);
       }
-      /* 确保所有图标颜色正确 */
-      .workspace-leaf-content[data-type="linkmuse-sidebar"] svg.lucide-brain-cog {
-        color: var(--text-normal);
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 2px;
+      .linkmuse-note-info {
+        margin: 8px 0 16px;
       }
-      /* 按钮图标样式 */
-      .linkmuse-btn-icon {
+      .linkmuse-active-note {
         display: flex;
         align-items: center;
-        gap: 8px;
-      }
-      .linkmuse-btn-icon svg {
-        width: 16px;
-        height: 16px;
-      }
-      /* 优化按钮区域布局 */
-      .linkmuse-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin: 15px 0;
-      }
-      .linkmuse-actions button {
-        display: flex;
-        width: 100%;
-        justify-content: center;
         padding: 8px 12px;
+        background-color: var(--background-secondary);
+        border-radius: 6px;
+        border-left: 3px solid var(--interactive-accent);
       }
-      /* 加载状态 */
+      .linkmuse-note-icon {
+        margin-right: 8px;
+      }
+      .linkmuse-note-name {
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .linkmuse-note-path {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .linkmuse-empty-state {
+        padding: 8px 12px;
+        background-color: var(--background-secondary);
+        border-radius: 6px;
+        border-left: 3px solid var(--text-muted);
+        color: var(--text-muted);
+        font-style: italic;
+      }
       .linkmuse-loading {
         display: flex;
         align-items: center;
-        justify-content: center;
         gap: 8px;
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 5px;
+        padding: 12px;
         background-color: var(--background-secondary);
+        border-radius: 6px;
       }
       .linkmuse-loading-spinner {
-        border: 2px solid var(--background-modifier-border);
-        border-top: 2px solid var(--interactive-accent);
-        border-radius: 50%;
         width: 16px;
         height: 16px;
-        animation: linkmuse-spin 1s linear infinite;
+        border: 2px solid var(--interactive-accent);
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 1s linear infinite;
       }
-      @keyframes linkmuse-spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
     `;
     document.head.appendChild(style);
@@ -1456,64 +1464,74 @@ var SidebarView = class extends import_obsidian.ItemView {
       }
     });
     const actionSection = mainSection.createDiv({ cls: "linkmuse-actions" });
-    
-    // 创建"生成智能单向关联"按钮（带图标）
     const linkButton = actionSection.createEl("button", {
+      text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054",
       cls: "mod-cta"
     });
-    // 创建一个包含图标和文本的容器
-    const linkBtnContent = linkButton.createDiv({ cls: "linkmuse-btn-icon" });
-    // 添加图标
-    const linkBtnIcon = linkBtnContent.createDiv();
-    (0, import_obsidian.setIcon)(linkBtnIcon, "brain-cog");
-    // 添加文本
-    linkBtnContent.createSpan({ text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054" });
-    
     linkButton.addEventListener("click", () => {
-      // 直接调用 plugin 中的命令逻辑，而不进行客户端检查
       this.plugin.generateUnidirectionalLinks();
     });
-    
-    // 创建"灵感跃迁"按钮（带图标）
     const inspirationButton = actionSection.createEl("button", {
+      text: "\u7075\u611F\u8DC3\u8FC1",
       cls: "mod-cta"
     });
-    // 创建一个包含图标和文本的容器
-    const inspirationBtnContent = inspirationButton.createDiv({ cls: "linkmuse-btn-icon" });
-    // 添加图标
-    const inspirationBtnIcon = inspirationBtnContent.createDiv();
-    (0, import_obsidian.setIcon)(inspirationBtnIcon, "brain-cog");
-    // 添加文本
-    inspirationBtnContent.createSpan({ text: "\u7075\u611F\u8DC3\u8FC1" });
-    
     inspirationButton.addEventListener("click", () => {
       this.plugin.generateInspiration();
     });
-    
     const resultsSection = container.createDiv({ cls: "linkmuse-results" });
     resultsSection.createEl("h3", { text: "\u7ED3\u679C" });
     this.resultsContainer = resultsSection.createDiv({ cls: "linkmuse-results-container" });
   }
-
-  // 显示分析中状态
+  updateCurrentNoteInfo() {
+    this.noteInfoContainer.empty();
+    let activeView = this.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
+    if (!activeView || !activeView.file) {
+      const leaves = this.app.workspace.getLeavesOfType("markdown");
+      for (const leaf of leaves) {
+        if (leaf.view instanceof import_obsidian.MarkdownView) {
+          activeView = leaf.view;
+          if (leaf.getRoot().activeLeaf === leaf) {
+            break;
+          }
+        }
+      }
+    }
+    if (activeView && activeView.file) {
+      const noteInfo = this.noteInfoContainer.createDiv({ cls: "linkmuse-active-note" });
+      const docIcon = noteInfo.createSpan({ cls: "linkmuse-note-icon" });
+      (0, import_obsidian.setIcon)(docIcon, "document");
+      noteInfo.createSpan({
+        text: activeView.file.basename,
+        cls: "linkmuse-note-name"
+      });
+      if (activeView.file.parent && activeView.file.parent.path !== "/") {
+        noteInfo.createEl("div", {
+          text: `\u8DEF\u5F84: ${activeView.file.parent.path}`,
+          cls: "linkmuse-note-path"
+        });
+      }
+    } else {
+      const emptyState = this.noteInfoContainer.createDiv({ cls: "linkmuse-empty-state" });
+      emptyState.createSpan({
+        text: "\u8BF7\u5148\u5728\u7F16\u8F91\u533A\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0",
+        cls: "linkmuse-empty-message"
+      });
+    }
+  }
+  showResultMessage(message, isError = false) {
+    this.resultsContainer.empty();
+    const messageEl = this.resultsContainer.createDiv({
+      cls: `linkmuse-message ${isError ? "error" : ""}`,
+      text: message
+    });
+  }
   showAnalyzing() {
     this.resultsContainer.empty();
     const loadingEl = this.resultsContainer.createDiv({ cls: "linkmuse-loading" });
     loadingEl.createDiv({ cls: "linkmuse-loading-spinner" });
     loadingEl.createSpan({ text: "\u6B63\u5728\u5206\u6790\u4E2D..." });
   }
-
-  // 在结果区域显示消息
-  showResultMessage(message, isError = false) {
-    this.resultsContainer.empty();
-    const messageEl = this.resultsContainer.createDiv({ 
-      cls: `linkmuse-message ${isError ? 'error' : ''}`,
-      text: message
-    });
-  }
-
   async onClose() {
-    // 清理资源
   }
 };
 
@@ -1882,41 +1900,20 @@ var NoteLinkService = class {
 };
 
 // src/ui/header.ts
+var import_obsidian2 = __toModule(require("obsidian"));
 function setupHeaderLogo(plugin) {
-  // 获取顶部面板元素
   const titleEl = document.querySelector(".view-header-title");
   if (!titleEl)
     return;
-  
-  // 添加一个自定义样式以确保图标颜色正确
-  const style = document.createElement("style");
-  style.textContent = `
-    .linkmuse-logo-icon svg.lucide-brain-cog {
-      color: var(--text-normal);
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2px;
-    }
-  `;
-  document.head.appendChild(style);
-  
-  // 清空现有内容
   titleEl.empty();
-  
-  // 创建Logo容器
   const logoContainer = titleEl.createDiv({ cls: "linkmuse-logo" });
-  
-  // 创建Logo图标
   const logoIcon = logoContainer.createDiv({ cls: "linkmuse-logo-icon" });
-  // 使用与左侧相同的brain-cog图标
   (0, import_obsidian2.setIcon)(logoIcon, "brain-cog");
-  
-  // 创建Logo文字
   logoContainer.createSpan({ text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
 }
 
 // src/main.ts
-var LinkMuse = class extends import_obsidian2.Plugin {
+var LinkMuse = class extends import_obsidian3.Plugin {
   async onload() {
     console.log("\u52A0\u8F7D LinkMuse \u63D2\u4EF6");
     await this.loadSettings();
@@ -1948,11 +1945,13 @@ var LinkMuse = class extends import_obsidian2.Plugin {
       return;
     }
     const leaf = workspace.getRightLeaf(false);
-    await leaf.setViewState({
-      type: "linkmuse-sidebar",
-      active: true
-    });
-    workspace.revealLeaf(leaf);
+    if (leaf) {
+      await leaf.setViewState({
+        type: "linkmuse-sidebar",
+        active: true
+      });
+      workspace.revealLeaf(leaf);
+    }
   }
   addCommands() {
     this.addCommand({
@@ -1977,126 +1976,111 @@ var LinkMuse = class extends import_obsidian2.Plugin {
     });
   }
   async generateUnidirectionalLinks() {
-    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView);
+    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
     if (!activeView || !activeView.file) {
-      new import_obsidian2.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
+      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0", true);
+      } else {
+        new import_obsidian3.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
+      }
       return;
     }
-    
     const currentFile = activeView.file;
-    
     try {
-      // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      // 如果侧边栏打开，显示分析中状态
+      let sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       if (sidebarView && sidebarView instanceof SidebarView) {
         sidebarView.showAnalyzing();
       }
-      
-      // 创建持续显示的加载提示框
-      const loadingNotice = new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...", 0);
-      
-      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(
-        currentFile,
-        this.settings.maxNotesToAnalyze
-      );
-      
-      // 关闭加载提示框
+      const loadingNotice = new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...", 0);
+      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, this.settings.maxNotesToAnalyze);
       loadingNotice.hide();
-    
       if (potentialLinks.length === 0) {
-        new import_obsidian2.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
-        // 如果侧边栏打开，显示未找到关联的消息
+        sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+        sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
         if (sidebarView && sidebarView instanceof SidebarView) {
-          sidebarView.showResultMessage("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
+          sidebarView.showResultMessage("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0", true);
+        } else {
+          new import_obsidian3.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
         }
         return;
       }
-    
-      // 构建输出内容
       let output = "## \u6F5C\u5728\u7684\u7B14\u8BB0\u5173\u8054\n\n";
-      potentialLinks.forEach(link => {
+      potentialLinks.forEach((link) => {
         output += `\u5F53\u524D\u7B14\u8BB0\u548C[[${link.noteName}]]\u6F5C\u5728\u7684\u5173\u8054\uFF1A${link.content}\uFF0C\u5173\u8054\u7A0B\u5EA6\uFF1A${link.relevanceScore}
 
 `;
       });
-    
-      // 将结果插入到当前笔记末尾
       const editor = activeView.editor;
       const currentContent = editor.getValue();
       editor.setValue(currentContent + "\n\n" + output);
-    
-      // 显示成功通知
-      new import_obsidian2.Notice(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
-      
-      // 如果侧边栏打开，显示成功消息
+      sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054\uFF0C\u5E76\u5DF2\u63D2\u5165\u5230\u5F53\u524D\u7B14\u8BB0\u4E2D`);
+        sidebarView.showResultMessage(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
+      } else {
+        new import_obsidian3.Notice(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
       }
     } catch (error) {
       console.error("\u751F\u6210\u5355\u5411\u5173\u8054\u65F6\u51FA\u9519:", error);
-      new import_obsidian2.Notice("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
-      
-      // 如果侧边栏打开，显示错误消息
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
       const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F", true);
+        sidebarView.showResultMessage("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519", true);
+      } else {
+        new import_obsidian3.Notice("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
       }
     }
   }
   async analyzeNoteCombinations() {
-    new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054...");
+    new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054...");
   }
   async generateInspiration() {
-    try {
-      // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
+    if (!activeView || !activeView.file) {
+      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
       const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      // 如果侧边栏打开，显示分析中状态
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0", true);
+      } else {
+        new import_obsidian3.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
+      }
+      return;
+    }
+    try {
+      let sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       if (sidebarView && sidebarView instanceof SidebarView) {
         sidebarView.showAnalyzing();
       }
-      
-      // 创建持续显示的加载提示框
-      const loadingNotice = new import_obsidian2.Notice("\u6B63\u5728\u751F\u6210\u7075\u611F\u8DC3\u8FC1...", 0);
-      
-      // 调用灵感生成逻辑
-      // TODO: 实现灵感跃迁的具体功能
-      
-      // 这里是模拟调用，实际项目中应替换为真实的API调用
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // 关闭加载提示框
+      const loadingNotice = new import_obsidian3.Notice("\u6B63\u5728\u751F\u6210\u7075\u611F\u8DC3\u8FC1...", 0);
+      await new Promise((resolve) => setTimeout(resolve, 2e3));
       loadingNotice.hide();
-      
-      // 显示成功通知
-      new import_obsidian2.Notice("\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u5B8C\u6210");
-      
-      // 如果侧边栏打开，显示成功消息
+      sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       if (sidebarView && sidebarView instanceof SidebarView) {
         sidebarView.showResultMessage("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u5F00\u53D1\u4E2D...");
+      } else {
+        new import_obsidian3.Notice("\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u5B8C\u6210");
       }
     } catch (error) {
       console.error("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519:", error);
-      new import_obsidian2.Notice("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
-      
-      // 如果侧边栏打开，显示错误消息
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
       const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       if (sidebarView && sidebarView instanceof SidebarView) {
         sidebarView.showResultMessage("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519", true);
+      } else {
+        new import_obsidian3.Notice("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
       }
     }
   }
   async analyzeMultimedia() {
-    new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9...");
+    new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9...");
   }
 };
-var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
+var LinkMuseSettingTab = class extends import_obsidian3.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -2106,83 +2090,83 @@ var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "LinkMuse \u8BBE\u7F6E" });
     containerEl.createEl("h3", { text: "API \u914D\u7F6E" });
-    new import_obsidian2.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u7845\u57FA\u6D41\u52A8 API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("sf-...").setValue(this.plugin.settings.siliconflowApiKey).onChange(async (value) => {
+    new import_obsidian3.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u7845\u57FA\u6D41\u52A8 API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("sf-...").setValue(this.plugin.settings.siliconflowApiKey).onChange(async (value) => {
       this.plugin.settings.siliconflowApiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8\u6A21\u578B").setDesc("\u9009\u62E9\u8981\u4F7F\u7528\u7684\u7845\u57FA\u6D41\u52A8\u6A21\u578B").addDropdown((dropdown) => {
+    new import_obsidian3.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8\u6A21\u578B").setDesc("\u9009\u62E9\u8981\u4F7F\u7528\u7684\u7845\u57FA\u6D41\u52A8\u6A21\u578B").addDropdown((dropdown) => {
       dropdown.addOption("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "DeepSeek-R1-Distill-Qwen-7B").addOption("Qwen/Qwen2-7B-Instruct", "Qwen2-7B-Instruct").addOption("internlm/internlm2_5-7b-chat", "InternLM2-7B-Chat").addOption("THUDM/glm-4-9b-chat", "GLM-4-9B-Chat").setValue(this.plugin.settings.siliconflowModel).onChange(async (value) => {
         this.plugin.settings.siliconflowModel = value;
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian2.Setting(containerEl).setName("\u6D4B\u8BD5\u7845\u57FA\u6D41\u52A8\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u7845\u57FA\u6D41\u52A8API\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+    new import_obsidian3.Setting(containerEl).setName("\u6D4B\u8BD5\u7845\u57FA\u6D41\u52A8\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u7845\u57FA\u6D41\u52A8API\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
       button.setButtonText("\u6D4B\u8BD5\u4E2D...");
       try {
         if (!this.plugin.settings.siliconflowApiKey) {
-          new import_obsidian2.Notice("\u8BF7\u5148\u914D\u7F6E\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5");
+          new import_obsidian3.Notice("\u8BF7\u5148\u914D\u7F6E\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5");
           return;
         }
         const result = await this.plugin.llmService.testSiliconFlow();
-        new import_obsidian2.Notice(`\u7845\u57FA\u6D41\u52A8 API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
+        new import_obsidian3.Notice(`\u7845\u57FA\u6D41\u52A8 API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
       } catch (error) {
-        new import_obsidian2.Notice(`\u7845\u57FA\u6D41\u52A8 API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
+        new import_obsidian3.Notice(`\u7845\u57FA\u6D41\u52A8 API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
       } finally {
         button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
       }
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u706B\u5C71\u5F15\u64CE API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("volc-...").setValue(this.plugin.settings.volcApiKey).onChange(async (value) => {
+    new import_obsidian3.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u706B\u5C71\u5F15\u64CE API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("volc-...").setValue(this.plugin.settings.volcApiKey).onChange(async (value) => {
       this.plugin.settings.volcApiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE\u6A21\u578B").setDesc("\u9009\u62E9\u8981\u4F7F\u7528\u7684\u706B\u5C71\u5F15\u64CE\u6A21\u578B").addDropdown((dropdown) => {
+    new import_obsidian3.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE\u6A21\u578B").setDesc("\u9009\u62E9\u8981\u4F7F\u7528\u7684\u706B\u5C71\u5F15\u64CE\u6A21\u578B").addDropdown((dropdown) => {
       dropdown.addOption("deepseek-r1-250120", "DeepSeek-R1").addOption("deepseek-v3-241226", "DeepSeek-V3").addOption("deepseek-r1-distill-qwen-32b-250120", "DeepSeek-R1-Distill-Qwen-32B").addOption("deepseek-r1-distill-qwen-7b-250120", "DeepSeek-R1-Distill-Qwen-7B").setValue(this.plugin.settings.volcModel).onChange(async (value) => {
         this.plugin.settings.volcModel = value;
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian2.Setting(containerEl).setName("\u6D4B\u8BD5\u706B\u5C71\u5F15\u64CE\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u706B\u5C71\u5F15\u64CEAPI\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+    new import_obsidian3.Setting(containerEl).setName("\u6D4B\u8BD5\u706B\u5C71\u5F15\u64CE\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u706B\u5C71\u5F15\u64CEAPI\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
       button.setButtonText("\u6D4B\u8BD5\u4E2D...");
       try {
         if (!this.plugin.settings.volcApiKey) {
-          new import_obsidian2.Notice("\u8BF7\u5148\u914D\u7F6E\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5");
+          new import_obsidian3.Notice("\u8BF7\u5148\u914D\u7F6E\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5");
           return;
         }
         const result = await this.plugin.llmService.testVolcEngine();
-        new import_obsidian2.Notice(`\u706B\u5C71\u5F15\u64CE API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
+        new import_obsidian3.Notice(`\u706B\u5C71\u5F15\u64CE API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
       } catch (error) {
-        new import_obsidian2.Notice(`\u706B\u5C71\u5F15\u64CE API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
+        new import_obsidian3.Notice(`\u706B\u5C71\u5F15\u64CE API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
       } finally {
         button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
       }
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u2B50\uFE0F\u9ED8\u8BA4LLM\u63D0\u4F9B\u5546").setDesc("\u9009\u62E9\u9ED8\u8BA4\u4F7F\u7528\u7684AI\u670D\u52A1\u63D0\u4F9B\u5546").addDropdown((dropdown) => {
+    new import_obsidian3.Setting(containerEl).setName("\u2B50\uFE0F\u9ED8\u8BA4LLM\u63D0\u4F9B\u5546").setDesc("\u9009\u62E9\u9ED8\u8BA4\u4F7F\u7528\u7684AI\u670D\u52A1\u63D0\u4F9B\u5546").addDropdown((dropdown) => {
       dropdown.addOption("siliconflow", "\u7845\u57FA\u6D41\u52A8").addOption("volc", "\u706B\u5C71\u5F15\u64CE").setValue(this.plugin.settings.defaultProvider).onChange(async (value) => {
         this.plugin.settings.defaultProvider = value;
         await this.plugin.saveSettings();
       });
     });
     containerEl.createEl("h3", { text: "\u529F\u80FD\u8BBE\u7F6E" });
-    new import_obsidian2.Setting(containerEl).setName("\u5206\u6790\u7B14\u8BB0\u6570\u91CF").setDesc("\u8BBE\u7F6E\u667A\u80FD\u5173\u8054\u5206\u6790\u65F6\u7684\u6700\u5927\u7B14\u8BB0\u6570\u91CF").addSlider((slider) => slider.setLimits(5, 50, 5).setValue(this.plugin.settings.maxNotesToAnalyze).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian3.Setting(containerEl).setName("\u5206\u6790\u7B14\u8BB0\u6570\u91CF").setDesc("\u8BBE\u7F6E\u667A\u80FD\u5173\u8054\u5206\u6790\u65F6\u7684\u6700\u5927\u7B14\u8BB0\u6570\u91CF").addSlider((slider) => slider.setLimits(5, 50, 5).setValue(this.plugin.settings.maxNotesToAnalyze).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.maxNotesToAnalyze = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u4FDD\u5B58\u601D\u7EF4\u94FE").setDesc("\u662F\u5426\u4FDD\u5B58LLM\u5206\u6790\u8FC7\u7A0B\u7684\u601D\u7EF4\u94FE").addToggle((toggle) => toggle.setValue(this.plugin.settings.saveChainOfThought).onChange(async (value) => {
+    new import_obsidian3.Setting(containerEl).setName("\u4FDD\u5B58\u601D\u7EF4\u94FE").setDesc("\u662F\u5426\u4FDD\u5B58LLM\u5206\u6790\u8FC7\u7A0B\u7684\u601D\u7EF4\u94FE").addToggle((toggle) => toggle.setValue(this.plugin.settings.saveChainOfThought).onChange(async (value) => {
       this.plugin.settings.saveChainOfThought = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u7075\u611F\u751F\u6210\u6570\u91CF").setDesc("\u6BCF\u6B21\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u7684\u7075\u611F\u6570\u91CF").addSlider((slider) => slider.setLimits(1, 10, 1).setValue(this.plugin.settings.inspirationCount).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian3.Setting(containerEl).setName("\u7075\u611F\u751F\u6210\u6570\u91CF").setDesc("\u6BCF\u6B21\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u7684\u7075\u611F\u6570\u91CF").addSlider((slider) => slider.setLimits(1, 10, 1).setValue(this.plugin.settings.inspirationCount).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.inspirationCount = value;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u9AD8\u7EA7\u8BBE\u7F6E" });
-    new import_obsidian2.Setting(containerEl).setName("\u6D4B\u8BD5API\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u5F53\u524D\u914D\u7F6E\u7684API\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+    new import_obsidian3.Setting(containerEl).setName("\u6D4B\u8BD5API\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u5F53\u524D\u914D\u7F6E\u7684API\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
       button.setButtonText("\u6D4B\u8BD5\u4E2D...");
       try {
         const result = await this.plugin.llmService.testConnection();
-        new import_obsidian2.Notice(`API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
+        new import_obsidian3.Notice(`API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
       } catch (error) {
-        new import_obsidian2.Notice(`API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
+        new import_obsidian3.Notice(`API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
       } finally {
         button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
       }

@@ -69,12 +69,14 @@ export default class LinkMuse extends Plugin {
     
     // 创建新的侧边栏视图
     const leaf = workspace.getRightLeaf(false);
-    await leaf.setViewState({
-      type: 'linkmuse-sidebar',
-      active: true,
-    });
-    
-    workspace.revealLeaf(leaf);
+    if (leaf) {
+      await leaf.setViewState({
+        type: 'linkmuse-sidebar',
+        active: true,
+      });
+      
+      workspace.revealLeaf(leaf);
+    }
   }
   
   addCommands() {
@@ -109,12 +111,27 @@ export default class LinkMuse extends Plugin {
   
   async generateUnidirectionalLinks() {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView || !activeView.file) {
+      // 获取侧边栏视图
+      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        // 在侧边栏显示错误消息，不显示弹出通知
+        sidebarView.showResultMessage('请先打开一个笔记', true);
+      } else {
+        // 如果侧边栏未打开，显示通知
+        new Notice('请先打开一个笔记');
+      }
+      return;
+    }
+    
     const currentFile = activeView.file;
     
     try {
       // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      let sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       
       // 如果侧边栏打开，显示分析中状态
       if (sidebarView && sidebarView instanceof SidebarView) {
@@ -133,11 +150,16 @@ export default class LinkMuse extends Plugin {
       loadingNotice.hide();
     
       if (potentialLinks.length === 0) {
-        new Notice('未找到潜在关联的笔记');
+        // 获取侧边栏视图（重新获取是因为可能在操作过程中状态发生变化）
+        sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+        sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
         
-        // 如果侧边栏打开，显示未找到关联的消息
         if (sidebarView && sidebarView instanceof SidebarView) {
+          // 在侧边栏显示未找到关联的消息，不显示弹出通知
           sidebarView.showResultMessage('未找到潜在关联的笔记', true);
+        } else {
+          // 如果侧边栏未打开，显示通知
+          new Notice('未找到潜在关联的笔记');
         }
         return;
       }
@@ -153,21 +175,30 @@ export default class LinkMuse extends Plugin {
       const currentContent = editor.getValue();
       editor.setValue(currentContent + '\n\n' + output);
     
-      new Notice(`已找到${potentialLinks.length}个潜在关联`);
+      // 获取侧边栏视图（重新获取是因为可能在操作过程中状态发生变化）
+      sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       
-      // 如果侧边栏打开，显示成功消息
       if (sidebarView && sidebarView instanceof SidebarView) {
+        // 在侧边栏显示成功消息，不显示弹出通知
         sidebarView.showResultMessage(`已找到${potentialLinks.length}个潜在关联`);
+      } else {
+        // 如果侧边栏未打开，显示通知
+        new Notice(`已找到${potentialLinks.length}个潜在关联`);
       }
     } catch (error) {
       console.error('生成单向关联时出错:', error);
-      new Notice('生成关联时出错，请查看控制台获取详细信息');
       
-      // 如果侧边栏打开，显示错误消息
+      // 获取侧边栏视图
       const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
       const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      
       if (sidebarView && sidebarView instanceof SidebarView) {
+        // 在侧边栏显示错误消息，不显示弹出通知
         sidebarView.showResultMessage('生成关联时出错', true);
+      } else {
+        // 如果侧边栏未打开，显示通知
+        new Notice('生成关联时出错，请查看控制台获取详细信息');
       }
     }
   }
@@ -178,10 +209,26 @@ export default class LinkMuse extends Plugin {
   }
   
   async generateInspiration() {
-    try {
+    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!activeView || !activeView.file) {
       // 获取侧边栏视图
       const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
       const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        // 在侧边栏显示错误消息，不显示弹出通知
+        sidebarView.showResultMessage('请先打开一个笔记', true);
+      } else {
+        // 如果侧边栏未打开，显示通知
+        new Notice('请先打开一个笔记');
+      }
+      return;
+    }
+    
+    try {
+      // 获取侧边栏视图
+      let sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       
       // 如果侧边栏打开，显示分析中状态
       if (sidebarView && sidebarView instanceof SidebarView) {
@@ -200,22 +247,30 @@ export default class LinkMuse extends Plugin {
       // 关闭加载提示框
       loadingNotice.hide();
       
-      // 显示成功通知
-      new Notice('灵感跃迁生成完成');
+      // 获取侧边栏视图（重新获取是因为可能在操作过程中状态发生变化）
+      sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       
-      // 如果侧边栏打开，显示成功消息
       if (sidebarView && sidebarView instanceof SidebarView) {
+        // 在侧边栏显示成功消息，不显示弹出通知
         sidebarView.showResultMessage('灵感跃迁功能开发中...');
+      } else {
+        // 如果侧边栏未打开，显示通知
+        new Notice('灵感跃迁生成完成');
       }
     } catch (error) {
       console.error('生成灵感跃迁时出错:', error);
-      new Notice('生成灵感跃迁时出错，请查看控制台获取详细信息');
       
-      // 如果侧边栏打开，显示错误消息
+      // 获取侧边栏视图
       const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
       const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      
       if (sidebarView && sidebarView instanceof SidebarView) {
+        // 在侧边栏显示错误消息，不显示弹出通知
         sidebarView.showResultMessage('生成灵感跃迁时出错', true);
+      } else {
+        // 如果侧边栏未打开，显示通知
+        new Notice('生成灵感跃迁时出错，请查看控制台获取详细信息');
       }
     }
   }

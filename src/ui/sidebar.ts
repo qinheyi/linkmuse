@@ -5,6 +5,7 @@ import { LLM_PROVIDERS } from '../settings';
 export class SidebarView extends ItemView {
   plugin: LinkMuse;
   resultsContainer: HTMLElement;
+  noteInfoContainer: HTMLElement;
 
   constructor(leaf: WorkspaceLeaf, plugin: LinkMuse) {
     super(leaf);
@@ -39,6 +40,43 @@ export class SidebarView extends ItemView {
     // 笔记选择区域
     const noteSelectionSection = mainSection.createDiv({ cls: 'linkmuse-note-selection' });
     noteSelectionSection.createEl('h3', { text: '笔记选择' });
+    
+    // 添加当前笔记信息显示区域
+    this.noteInfoContainer = noteSelectionSection.createDiv({ cls: 'linkmuse-note-info' });
+    
+    // 初始化当前笔记显示
+    this.updateCurrentNoteInfo();
+    
+    // 注册工作区事件监听，在活动笔记变化时更新信息
+    this.registerEvent(
+      this.app.workspace.on('active-leaf-change', () => {
+        this.updateCurrentNoteInfo();
+      })
+    );
+    
+    // 监听文件打开事件
+    this.registerEvent(
+      this.app.workspace.on('file-open', () => {
+        this.updateCurrentNoteInfo();
+      })
+    );
+    
+    // 监听布局变化事件
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => {
+        this.updateCurrentNoteInfo();
+      })
+    );
+    
+    // 设置定时刷新，确保信息始终最新
+    const refreshInterval = window.setInterval(() => {
+      this.updateCurrentNoteInfo();
+    }, 3000); // 每3秒刷新一次
+    
+    // 在视图关闭时清除定时器
+    this.register(() => {
+      window.clearInterval(refreshInterval);
+    });
     
     // LLM提供商选择区域
     const llmProviderSection = mainSection.createDiv({ cls: 'linkmuse-llm-provider' });
@@ -93,6 +131,61 @@ export class SidebarView extends ItemView {
         color: var(--text-error);
         border-left: 3px solid var(--text-error);
       }
+      .linkmuse-note-info {
+        margin: 8px 0 16px;
+      }
+      .linkmuse-active-note {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        background-color: var(--background-secondary);
+        border-radius: 6px;
+        border-left: 3px solid var(--interactive-accent);
+      }
+      .linkmuse-note-icon {
+        margin-right: 8px;
+      }
+      .linkmuse-note-name {
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .linkmuse-note-path {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .linkmuse-empty-state {
+        padding: 8px 12px;
+        background-color: var(--background-secondary);
+        border-radius: 6px;
+        border-left: 3px solid var(--text-muted);
+        color: var(--text-muted);
+        font-style: italic;
+      }
+      .linkmuse-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background-color: var(--background-secondary);
+        border-radius: 6px;
+      }
+      .linkmuse-loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--interactive-accent);
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
     `;
     document.head.appendChild(style);
     
@@ -128,13 +221,6 @@ export class SidebarView extends ItemView {
       cls: 'mod-cta'
     });
     linkButton.addEventListener('click', () => {
-      // 检查是否已打开笔记
-      const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-      if (!activeView || !activeView.file) {
-        // 在侧边栏显示错误消息，而不是弹出提示
-        this.showResultMessage('请先打开一个笔记', true);
-        return;
-      }
       this.plugin.generateUnidirectionalLinks();
     });
     
@@ -144,13 +230,6 @@ export class SidebarView extends ItemView {
       cls: 'mod-cta'
     });
     inspirationButton.addEventListener('click', () => {
-      // 检查是否已打开笔记
-      const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-      if (!activeView || !activeView.file) {
-        // 在侧边栏显示错误消息，而不是弹出提示
-        this.showResultMessage('请先打开一个笔记', true);
-        return;
-      }
       this.plugin.generateInspiration();
     });
     
@@ -158,6 +237,58 @@ export class SidebarView extends ItemView {
     const resultsSection = container.createDiv({ cls: 'linkmuse-results' });
     resultsSection.createEl('h3', { text: '结果' });
     this.resultsContainer = resultsSection.createDiv({ cls: 'linkmuse-results-container' });
+  }
+
+  // 更新当前笔记信息
+  updateCurrentNoteInfo(): void {
+    this.noteInfoContainer.empty();
+    
+    // 尝试多种方式获取当前活动的Markdown视图
+    let activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+    
+    // 如果没有找到，尝试从所有打开的叶子中查找
+    if (!activeView || !activeView.file) {
+      // 遍历所有打开的叶子，找到当前活动的或第一个Markdown视图
+      const leaves = this.app.workspace.getLeavesOfType('markdown');
+      for (const leaf of leaves) {
+        if (leaf.view instanceof MarkdownView) {
+          activeView = leaf.view;
+          if (leaf.getRoot().activeLeaf === leaf) {
+            break; // 如果是活动叶子，优先使用
+          }
+        }
+      }
+    }
+    
+    if (activeView && activeView.file) {
+      // 显示当前打开的笔记名称
+      const noteInfo = this.noteInfoContainer.createDiv({ cls: 'linkmuse-active-note' });
+      
+      // 添加文档图标
+      const docIcon = noteInfo.createSpan({ cls: 'linkmuse-note-icon' });
+      setIcon(docIcon, 'document');
+      
+      // 添加笔记名称
+      noteInfo.createSpan({ 
+        text: activeView.file.basename,
+        cls: 'linkmuse-note-name'
+      });
+      
+      // 添加文件路径提示(如果在子文件夹中)
+      if (activeView.file.parent && activeView.file.parent.path !== '/') {
+        noteInfo.createEl('div', {
+          text: `路径: ${activeView.file.parent.path}`,
+          cls: 'linkmuse-note-path'
+        });
+      }
+    } else {
+      // 没有打开笔记的提示
+      const emptyState = this.noteInfoContainer.createDiv({ cls: 'linkmuse-empty-state' });
+      emptyState.createSpan({ 
+        text: '请先在编辑区打开一个笔记',
+        cls: 'linkmuse-empty-message'
+      });
+    }
   }
 
   // 在结果区域显示消息
