@@ -3,25 +3,35 @@ import axios from 'axios';
 
 export class LLMService {
   private settings: LinkMuseSettings;
+  private app: App;
   private openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
   private claudeEndpoint = 'https://api.anthropic.com/v1/messages';
   private siliconflowEndpoint = 'https://api.siliconflow.cn/v1/chat/completions';
-  private volcEngineEndpoint = 'https://api.volcengine.com/v1/chat/completions';
+  private volcEngineEndpoint = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 
-  constructor(settings: LinkMuseSettings) {
+  constructor(settings: LinkMuseSettings, app: App) {
     this.settings = settings;
+    this.app = app;
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      if (this.settings.defaultModel.startsWith('gpt')) {
-        await this.testOpenAI();
-      } else if (this.settings.defaultModel.startsWith('claude')) {
-        await this.testClaude();
-      } else if (this.settings.defaultModel.startsWith('siliconflow')) {
-        await this.testSiliconFlow();
-      } else if (this.settings.defaultModel.startsWith('volc')) {
-        await this.testVolcEngine();
+      // 根据默认提供商进行测试
+      switch (this.settings.defaultProvider) {
+        case 'openai':
+          await this.testOpenAI();
+          break;
+        case 'claude':
+          await this.testClaude();
+          break;
+        case 'siliconflow':
+          await this.testSiliconFlow();
+          break;
+        case 'volc':
+          await this.testVolcEngine();
+          break;
+        default:
+          throw new Error('未知的LLM提供商');
       }
       return true;
     } catch (error) {
@@ -85,7 +95,7 @@ export class LLMService {
     await axios.post(
       this.siliconflowEndpoint,
       {
-        model: this.settings.defaultModel.replace('siliconflow-', ''),
+        model: this.settings.siliconflowModel,
         messages: [{ role: 'user', content: 'Hello' }],
         max_tokens: 5
       },
@@ -105,17 +115,21 @@ export class LLMService {
       throw new Error('未配置火山引擎API密钥');
     }
 
+    const timestamp = Math.floor(Date.now() / 1000);
+    const requestId = `${timestamp}-${Math.random().toString(36).substring(2, 15)}`;
+
     await axios.post(
       this.volcEngineEndpoint,
       {
-        model: this.settings.defaultModel.replace('volc-', ''),
+        model: this.settings.volcModel,
         messages: [{ role: 'user', content: 'Hello' }],
         max_tokens: 5
       },
       {
         headers: {
           'Authorization': `Bearer ${this.settings.volcApiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Request-Id': requestId
         }
       }
     );
@@ -147,16 +161,19 @@ export class LLMService {
 
   private async sendRequest(prompt: string): Promise<string> {
     try {
-      if (this.settings.defaultModel.startsWith('gpt')) {
-        return await this.sendOpenAIRequest(prompt);
-      } else if (this.settings.defaultModel.startsWith('claude')) {
-        return await this.sendClaudeRequest(prompt);
-      } else if (this.settings.defaultModel.startsWith('siliconflow')) {
-        return await this.sendSiliconFlowRequest(prompt);
-      } else if (this.settings.defaultModel.startsWith('volc')) {
-        return await this.sendVolcEngineRequest(prompt);
+      // 根据默认提供商选择请求方式
+      switch (this.settings.defaultProvider) {
+        case 'openai':
+          return await this.sendOpenAIRequest(prompt);
+        case 'claude':
+          return await this.sendClaudeRequest(prompt);
+        case 'siliconflow':
+          return await this.sendSiliconFlowRequest(prompt);
+        case 'volc':
+          return await this.sendVolcEngineRequest(prompt);
+        default:
+          throw new Error('不支持的LLM提供商');
       }
-      throw new Error('不支持的模型类型');
     } catch (error) {
       console.error('API请求失败:', error);
       throw error;
@@ -205,7 +222,7 @@ export class LLMService {
     const response = await axios.post(
       this.siliconflowEndpoint,
       {
-        model: this.settings.defaultModel.replace('siliconflow-', ''),
+        model: this.settings.siliconflowModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
       },
@@ -221,21 +238,25 @@ export class LLMService {
   }
 
   private async sendVolcEngineRequest(prompt: string): Promise<string> {
-    const response = await axios.post(
-      this.volcEngineEndpoint,
-      {
-        model: this.settings.defaultModel.replace('volc-', ''),
+    const timestamp = Math.floor(Date.now() / 1000);
+    const requestId = `${timestamp}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    const response = await this.app.request({
+      url: this.volcEngineEndpoint,
+      method: 'POST',
+      body: JSON.stringify({
+        model: this.settings.volcModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${this.settings.volcApiKey}`,
-          'Content-Type': 'application/json'
-        }
+      }),
+      headers: {
+        'Authorization': `Bearer ${this.settings.volcApiKey}`,
+        'Content-Type': 'application/json',
+        'X-Request-Id': requestId
       }
-    );
+    });
 
-    return response.data.choices[0].message.content;
+    const responseData = JSON.parse(response);
+    return responseData.choices[0].message.content;
   }
 }

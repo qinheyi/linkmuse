@@ -19,7 +19,7 @@ export default class LinkMuse extends Plugin {
     this.addSettingTab(new LinkMuseSettingTab(this.app, this));
     
     // 初始化LLM服务
-    this.llmService = new LLMService(this.settings);
+    this.llmService = new LLMService(this.settings, this.app);
     
     // 注册视图
     this.registerView(
@@ -274,6 +274,21 @@ class LinkMuseSettingTab extends PluginSettingTab {
           }
         })
       );
+      
+    // 默认LLM提供商设置
+    new Setting(containerEl)
+      .setName('⭐️默认LLM提供商')
+      .setDesc('选择默认使用的AI服务提供商')
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption('siliconflow', '硅基流动')
+          .addOption('volc', '火山引擎')
+          .setValue(this.plugin.settings.defaultProvider)
+          .onChange(async (value) => {
+            this.plugin.settings.defaultProvider = value;
+            await this.plugin.saveSettings();
+          });
+      });
       
     // 功能设置部分
     containerEl.createEl('h3', { text: '功能设置' });

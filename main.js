@@ -1285,6 +1285,7 @@ var DEFAULT_SETTINGS = {
   siliconflowApiKey: "",
   volcApiKey: "",
   defaultModel: "gpt-4",
+  defaultProvider: "openai",
   maxNotesToAnalyze: 20,
   saveChainOfThought: true,
   inspirationCount: 3,
@@ -1293,7 +1294,15 @@ var DEFAULT_SETTINGS = {
     bidirectionalLinks: "\u5206\u6790\u4EE5\u4E0B\u7B14\u8BB0\u5185\u5BB9\uFF0C\u627E\u51FA\u5B83\u4EEC\u4E4B\u95F4\u53EF\u80FD\u5B58\u5728\u7684\u5173\u8054\uFF1A\n{{notes}}",
     inspiration: "\u57FA\u4E8E\u4EE5\u4E0B\u7B14\u8BB0\u5185\u5BB9\uFF0C\u751F\u6210{{count}}\u4E2A\u521B\u65B0\u7684\u7075\u611F\u548C\u60F3\u6CD5\uFF1A\n{{notes}}",
     multimedia: "\u5206\u6790\u4EE5\u4E0B{{type}}\u5185\u5BB9\uFF0C\u63D0\u4F9B\u8BE6\u7EC6\u7684\u7406\u89E3\u548C\u603B\u7ED3\uFF1A\n{{content}}"
-  }
+  },
+  siliconflowModel: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+  volcModel: "deepseek-r1-distill-qwen-32b-250120"
+};
+var LLM_PROVIDERS = {
+  openai: "OpenAI",
+  claude: "Claude",
+  siliconflow: "\u7845\u57FA\u6D41\u52A8",
+  volc: "\u706B\u5C71\u5F15\u64CE"
 };
 
 // src/ui/sidebar.ts
@@ -1316,6 +1325,41 @@ var SidebarView = class extends import_obsidian.ItemView {
     const mainSection = container.createDiv({ cls: "linkmuse-main-section" });
     const noteSelectionSection = mainSection.createDiv({ cls: "linkmuse-note-selection" });
     noteSelectionSection.createEl("h3", { text: "\u7B14\u8BB0\u9009\u62E9" });
+    const llmProviderSection = mainSection.createDiv({ cls: "linkmuse-llm-provider" });
+    llmProviderSection.createEl("h4", { text: "LLM\u63D0\u4F9B\u5546" });
+    const providerButtonContainer = llmProviderSection.createDiv({ cls: "linkmuse-provider-buttons" });
+    const style = document.createElement("style");
+    style.textContent = `
+      .linkmuse-provider-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .linkmuse-provider-button {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .linkmuse-provider-button.is-active {
+        background-color: var(--interactive-accent);
+        color: var(--text-on-accent);
+      }
+    `;
+    document.head.appendChild(style);
+    Object.entries(LLM_PROVIDERS).forEach(([key, name]) => {
+      const providerButton = new import_obsidian.ButtonComponent(providerButtonContainer).setButtonText(name).setClass("linkmuse-provider-button").onClick(async () => {
+        providerButtonContainer.querySelectorAll(".linkmuse-provider-button").forEach((btn) => {
+          btn.removeClass("is-active");
+        });
+        providerButton.buttonEl.addClass("is-active");
+        this.plugin.settings.defaultProvider = key;
+        await this.plugin.saveSettings();
+      });
+      if (this.plugin.settings.defaultProvider === key) {
+        providerButton.buttonEl.addClass("is-active");
+      }
+    });
     const actionSection = mainSection.createDiv({ cls: "linkmuse-actions" });
     const linkButton = actionSection.createEl("button", {
       text: "\u751F\u6210\u667A\u80FD\u5173\u8054",
@@ -1342,23 +1386,31 @@ var SidebarView = class extends import_obsidian.ItemView {
 // src/services/llm-service.ts
 var import_axios = __toModule(require_axios2());
 var LLMService = class {
-  constructor(settings) {
+  constructor(settings, app) {
     this.openaiEndpoint = "https://api.openai.com/v1/chat/completions";
     this.claudeEndpoint = "https://api.anthropic.com/v1/messages";
     this.siliconflowEndpoint = "https://api.siliconflow.cn/v1/chat/completions";
-    this.volcEngineEndpoint = "https://api.volcengine.com/v1/chat/completions";
+    this.volcEngineEndpoint = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
     this.settings = settings;
+    this.app = app;
   }
   async testConnection() {
     try {
-      if (this.settings.defaultModel.startsWith("gpt")) {
-        await this.testOpenAI();
-      } else if (this.settings.defaultModel.startsWith("claude")) {
-        await this.testClaude();
-      } else if (this.settings.defaultModel.startsWith("siliconflow")) {
-        await this.testSiliconFlow();
-      } else if (this.settings.defaultModel.startsWith("volc")) {
-        await this.testVolcEngine();
+      switch (this.settings.defaultProvider) {
+        case "openai":
+          await this.testOpenAI();
+          break;
+        case "claude":
+          await this.testClaude();
+          break;
+        case "siliconflow":
+          await this.testSiliconFlow();
+          break;
+        case "volc":
+          await this.testVolcEngine();
+          break;
+        default:
+          throw new Error("\u672A\u77E5\u7684LLM\u63D0\u4F9B\u5546");
       }
       return true;
     } catch (error) {
@@ -1403,7 +1455,7 @@ var LLMService = class {
       throw new Error("\u672A\u914D\u7F6E\u7845\u57FA\u6D41\u52A8API\u5BC6\u94A5");
     }
     await import_axios.default.post(this.siliconflowEndpoint, {
-      model: this.settings.defaultModel.replace("siliconflow-", ""),
+      model: this.settings.siliconflowModel,
       messages: [{ role: "user", content: "Hello" }],
       max_tokens: 5
     }, {
@@ -1418,14 +1470,17 @@ var LLMService = class {
     if (!this.settings.volcApiKey) {
       throw new Error("\u672A\u914D\u7F6E\u706B\u5C71\u5F15\u64CEAPI\u5BC6\u94A5");
     }
+    const timestamp = Math.floor(Date.now() / 1e3);
+    const requestId = `${timestamp}-${Math.random().toString(36).substring(2, 15)}`;
     await import_axios.default.post(this.volcEngineEndpoint, {
-      model: this.settings.defaultModel.replace("volc-", ""),
+      model: this.settings.volcModel,
       messages: [{ role: "user", content: "Hello" }],
       max_tokens: 5
     }, {
       headers: {
         "Authorization": `Bearer ${this.settings.volcApiKey}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Request-Id": requestId
       }
     });
     return true;
@@ -1444,16 +1499,18 @@ var LLMService = class {
   }
   async sendRequest(prompt) {
     try {
-      if (this.settings.defaultModel.startsWith("gpt")) {
-        return await this.sendOpenAIRequest(prompt);
-      } else if (this.settings.defaultModel.startsWith("claude")) {
-        return await this.sendClaudeRequest(prompt);
-      } else if (this.settings.defaultModel.startsWith("siliconflow")) {
-        return await this.sendSiliconFlowRequest(prompt);
-      } else if (this.settings.defaultModel.startsWith("volc")) {
-        return await this.sendVolcEngineRequest(prompt);
+      switch (this.settings.defaultProvider) {
+        case "openai":
+          return await this.sendOpenAIRequest(prompt);
+        case "claude":
+          return await this.sendClaudeRequest(prompt);
+        case "siliconflow":
+          return await this.sendSiliconFlowRequest(prompt);
+        case "volc":
+          return await this.sendVolcEngineRequest(prompt);
+        default:
+          throw new Error("\u4E0D\u652F\u6301\u7684LLM\u63D0\u4F9B\u5546");
       }
-      throw new Error("\u4E0D\u652F\u6301\u7684\u6A21\u578B\u7C7B\u578B");
     } catch (error) {
       console.error("API\u8BF7\u6C42\u5931\u8D25:", error);
       throw error;
@@ -1487,7 +1544,7 @@ var LLMService = class {
   }
   async sendSiliconFlowRequest(prompt) {
     const response = await import_axios.default.post(this.siliconflowEndpoint, {
-      model: this.settings.defaultModel.replace("siliconflow-", ""),
+      model: this.settings.siliconflowModel,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     }, {
@@ -1499,17 +1556,24 @@ var LLMService = class {
     return response.data.choices[0].message.content;
   }
   async sendVolcEngineRequest(prompt) {
-    const response = await import_axios.default.post(this.volcEngineEndpoint, {
-      model: this.settings.defaultModel.replace("volc-", ""),
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7
-    }, {
+    const timestamp = Math.floor(Date.now() / 1e3);
+    const requestId = `${timestamp}-${Math.random().toString(36).substring(2, 15)}`;
+    const response = await this.app.request({
+      url: this.volcEngineEndpoint,
+      method: "POST",
+      body: JSON.stringify({
+        model: this.settings.volcModel,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7
+      }),
       headers: {
         "Authorization": `Bearer ${this.settings.volcApiKey}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Request-Id": requestId
       }
     });
-    return response.data.choices[0].message.content;
+    const responseData = JSON.parse(response);
+    return responseData.choices[0].message.content;
   }
 };
 
@@ -1534,7 +1598,7 @@ var LinkMuse = class extends import_obsidian2.Plugin {
     console.log("\u52A0\u8F7D LinkMuse \u63D2\u4EF6");
     await this.loadSettings();
     this.addSettingTab(new LinkMuseSettingTab(this.app, this));
-    this.llmService = new LLMService(this.settings);
+    this.llmService = new LLMService(this.settings, this.app);
     this.registerView("linkmuse-sidebar", (leaf) => this.sidebarView = new SidebarView(leaf, this));
     this.addRibbonIcon("brain-cog", "LinkMuse", () => {
       this.activateView();
@@ -1666,6 +1730,12 @@ var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
         button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
       }
     }));
+    new import_obsidian2.Setting(containerEl).setName("\u2B50\uFE0F\u9ED8\u8BA4LLM\u63D0\u4F9B\u5546").setDesc("\u9009\u62E9\u9ED8\u8BA4\u4F7F\u7528\u7684AI\u670D\u52A1\u63D0\u4F9B\u5546").addDropdown((dropdown) => {
+      dropdown.addOption("siliconflow", "\u7845\u57FA\u6D41\u52A8").addOption("volc", "\u706B\u5C71\u5F15\u64CE").setValue(this.plugin.settings.defaultProvider).onChange(async (value) => {
+        this.plugin.settings.defaultProvider = value;
+        await this.plugin.saveSettings();
+      });
+    });
     containerEl.createEl("h3", { text: "\u529F\u80FD\u8BBE\u7F6E" });
     new import_obsidian2.Setting(containerEl).setName("\u5206\u6790\u7B14\u8BB0\u6570\u91CF").setDesc("\u8BBE\u7F6E\u667A\u80FD\u5173\u8054\u5206\u6790\u65F6\u7684\u6700\u5927\u7B14\u8BB0\u6570\u91CF").addSlider((slider) => slider.setLimits(5, 50, 5).setValue(this.plugin.settings.maxNotesToAnalyze).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.maxNotesToAnalyze = value;
