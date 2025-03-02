@@ -1321,7 +1321,8 @@ var SidebarView = class extends import_obsidian.ItemView {
   async onOpen() {
     const container = this.containerEl.children[1];
     container.empty();
-    container.createEl("h2", { text: "LinkMuse \u667A\u80FD\u5173\u8054" });
+    const titleContainer = container.createDiv({ cls: "linkmuse-sidebar-title" });
+    titleContainer.createEl("h2", { text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
     const mainSection = container.createDiv({ cls: "linkmuse-main-section" });
     const noteSelectionSection = mainSection.createDiv({ cls: "linkmuse-note-selection" });
     noteSelectionSection.createEl("h3", { text: "\u7B14\u8BB0\u9009\u62E9" });
@@ -1330,6 +1331,24 @@ var SidebarView = class extends import_obsidian.ItemView {
     const providerButtonContainer = llmProviderSection.createDiv({ cls: "linkmuse-provider-buttons" });
     const style = document.createElement("style");
     style.textContent = `
+      .linkmuse-sidebar-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .linkmuse-logo-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .linkmuse-logo-icon svg {
+        width: 100%;
+        height: 100%;
+        fill: var(--text-normal);
+      }
       .linkmuse-provider-buttons {
         display: flex;
         flex-wrap: wrap;
@@ -1761,10 +1780,11 @@ function setupHeaderLogo(plugin) {
   const logoContainer = titleEl.createDiv({ cls: "linkmuse-logo" });
   const logoIcon = logoContainer.createDiv({ cls: "linkmuse-logo-icon" });
   logoIcon.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <path d="M50 10 C70 10, 90 30, 90 50 C90 70, 70 90, 50 90 C30 90, 10 70, 10 50 C10 30, 30 10, 50 10 Z M50 30 C60 30, 70 40, 70 50 C70 60, 60 70, 50 70 C40 70, 30 60, 30 50 C30 40, 40 30, 50 30 Z" />
-    <path d="M30 30 L70 70 M30 70 L70 30" />
+    <path d="M50 5 C70 5, 85 20, 85 40 C85 55, 75 65, 60 70 C60 75, 65 80, 65 85 C65 90, 60 95, 50 95 C40 95, 35 90, 35 85 C35 80, 40 75, 40 70 C25 65, 15 55, 15 40 C15 20, 30 5, 50 5 Z" />
+    <path d="M35 40 C35 45, 40 50, 45 50 M55 50 C60 50, 65 45, 65 40" />
+    <path d="M30 25 C40 20, 60 20, 70 25" />
   </svg>`;
-  logoContainer.createSpan({ text: "LinkMuse \u667A\u80FD\u5173\u8054" });
+  logoContainer.createSpan({ text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
 }
 
 // src/main.ts

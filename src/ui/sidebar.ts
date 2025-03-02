@@ -22,7 +22,12 @@ export class SidebarView extends ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     
-    container.createEl('h2', { text: 'LinkMuse 智能关联' });
+    // 创建标题区域，包含图标和文字
+    const titleContainer = container.createDiv({ cls: 'linkmuse-sidebar-title' });
+    
+    
+    // 创建标题文字
+    titleContainer.createEl('h2', { text: 'LinkMuse 灵感跃迁' });
     
     // 创建主功能区
     const mainSection = container.createDiv({ cls: 'linkmuse-main-section' });
@@ -41,6 +46,24 @@ export class SidebarView extends ItemView {
     // 添加样式
     const style = document.createElement('style');
     style.textContent = `
+      .linkmuse-sidebar-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .linkmuse-logo-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .linkmuse-logo-icon svg {
+        width: 100%;
+        height: 100%;
+        fill: var(--text-normal);
+      }
       .linkmuse-provider-buttons {
         display: flex;
         flex-wrap: wrap;
