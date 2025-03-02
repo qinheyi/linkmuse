@@ -1,0 +1,37 @@
+{
+  "name": "linkmuse",
+  "version": "1.0.0",
+  "description": "LinkMuse (灵感跃迁) - Obsidian智能关联与灵感激发插件",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "jest"
+  },
+  "keywords": [
+    "obsidian-plugin",
+    "llm",
+    "note-linking",
+    "inspiration"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^27.0.2",
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.2.0",
+    "@typescript-eslint/parser": "^5.2.0",
+    "builtin-modules": "^3.2.0",
+    "esbuild": "^0.13.12",
+    "eslint": "^8.1.0",
+    "jest": "^27.3.1",
+    "obsidian": "^1.4.0",
+    "prettier": "^2.4.1",
+    "tslib": "2.3.1",
+    "typescript": "4.4.4"
+  },
+  "dependencies": {
+    "axios": "^0.24.0",
+    "svelte": "^3.44.0"
+  }
+}

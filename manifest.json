@@ -1,0 +1,10 @@
+{
+  "id": "linkmuse",
+  "name": "LinkMuse",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "智能关联与灵感激发插件 - 基于LLM的笔记关联和创意生成工具",
+  "author": "QINHEYI",
+  "authorUrl": "https://github.com/qinheyi",
+  "isDesktopOnly": false
+}
