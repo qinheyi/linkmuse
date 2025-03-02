@@ -51,7 +51,7 @@ export class NoteLinkService {
             const noteContent = await this.app.vault.read(note);
             
             // 使用LLM分析关联性
-            const analysis = await this.analyzeRelevance(currentContent, noteContent);
+            const analysis = await this.analyzeRelevance(currentNote.basename, note.basename, currentContent, noteContent);
             
             if (analysis.relevanceScore > 0) {
                 potentialLinks.push({
@@ -67,11 +67,16 @@ export class NoteLinkService {
     }
 
     // 使用LLM分析两个笔记之间的关联性
-    private async analyzeRelevance(content1: string, content2: string): Promise<{
+    private async analyzeRelevance(title1: string, title2: string, content1: string, content2: string): Promise<{
         explanation: string,
         relevanceScore: number
     }> {
         // 使用LLMService的analyzeNoteRelevance方法进行分析
-        return await this.llmService.analyzeNoteRelevance(content1, content2);
+        return await this.llmService.analyzeNoteRelevance(
+            title1,
+            title2,
+            content1,
+            content2
+        );
     }
 }

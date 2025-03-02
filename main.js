@@ -1628,18 +1628,20 @@ var LLMService = class {
     });
     return response.data.choices[0].message.content;
   }
-  async analyzeNoteRelevance(content1, content2) {
+  async analyzeNoteRelevance(title1, title2, content1, content2) {
     const prompt = `\u8BF7\u5206\u6790\u4EE5\u4E0B\u4E24\u4E2A\u7B14\u8BB0\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF1A
 
-\u7B14\u8BB01\uFF1A
+\u7B14\u8BB01\u6807\u9898\uFF1A${title1}
+\u7B14\u8BB01\u5185\u5BB9\uFF1A
 ${content1}
 
-\u7B14\u8BB02\uFF1A
+\u7B14\u8BB02\u6807\u9898\uFF1A${title2}
+\u7B14\u8BB02\u5185\u5BB9\uFF1A
 ${content2}
 
 \u8BF7\u63D0\u4F9B\uFF1A
-1. \u5173\u8054\u6027\u89E3\u91CA\uFF08\u7B80\u660E\u627C\u8981\u8BF4\u660E\u4E24\u4E2A\u7B14\u8BB0\u4E4B\u95F4\u7684\u5173\u8054\uFF0C\u5FC5\u987B\u4F7F\u7528\u7B14\u8BB0\u7684\u5B9E\u9645\u4E3B\u9898\u540D\u79F0\uFF0C\u800C\u4E0D\u662F\u4F7F\u7528"\u5185\u5BB91"/"\u5185\u5BB92
-2. \u5173\u8054\u7A0B\u5EA6\u8BC4\u5206\uFF080-1\u4E4B\u95F4\u7684\u6570\u503C\uFF0C\u5176\u4E2D0\u8868\u793A\u5B8C\u5168\u65E0\u5173\uFF0C1\u8868\u793A\u9AD8\u5EA6\u76F8\u5173\uFF09
+1. \u5173\u8054\u6027\u89E3\u91CA\uFF08\u9996\u5148\u5206\u6790\u7B14\u8BB0\u6807\u9898\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF0C\u8FD9\u662F\u6700\u4E3B\u8981\u7684\u5224\u65AD\u4F9D\u636E\uFF1B\u7136\u540E\u53C2\u8003\u7B14\u8BB0\u5185\u5BB9\u4F5C\u4E3A\u8F85\u52A9\uFF0C\u8FDB\u4E00\u6B65\u7406\u89E3\u6807\u9898\u53EF\u80FD\u8868\u8FBE\u7684\u542B\u4E49\u3002\u5982\u679C\u6807\u9898\u4E4B\u95F4\u6CA1\u6709\u660E\u663E\u5173\u8054\uFF0C\u5219\u5206\u6790\u7B14\u8BB0\u5185\u5BB9\u53EF\u80FD\u60F3\u8981\u9610\u8FF0\u7684\u6838\u5FC3\u610F\u4E49\uFF0C\u518D\u8FDB\u884C\u5173\u8054\u5206\u6790\uFF09
+2. \u5173\u8054\u7A0B\u5EA6\u8BC4\u5206\uFF080-1\u4E4B\u95F4\u7684\u6570\u503C\uFF0C\u5176\u4E2D0\u8868\u793A\u5B8C\u5168\u65E0\u5173\uFF0C1\u8868\u793A\u9AD8\u5EA6\u76F8\u5173\uFF09\u3002
 
 \u8BF7\u4EE5JSON\u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u683C\u5F0F\u5982\u4E0B\uFF1A
 {
@@ -1729,7 +1731,7 @@ var NoteLinkService = class {
     const potentialLinks = [];
     for (const note of notesToAnalyze) {
       const noteContent = await this.app.vault.read(note);
-      const analysis = await this.analyzeRelevance(currentContent, noteContent);
+      const analysis = await this.analyzeRelevance(currentNote.basename, note.basename, currentContent, noteContent);
       if (analysis.relevanceScore > 0) {
         potentialLinks.push({
           noteName: note.basename,
@@ -1740,8 +1742,8 @@ var NoteLinkService = class {
     }
     return potentialLinks.sort((a, b) => b.relevanceScore - a.relevanceScore);
   }
-  async analyzeRelevance(content1, content2) {
-    return await this.llmService.analyzeNoteRelevance(content1, content2);
+  async analyzeRelevance(title1, title2, content1, content2) {
+    return await this.llmService.analyzeNoteRelevance(title1, title2, content1, content2);
   }
 };
 
