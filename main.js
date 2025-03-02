@@ -1322,8 +1322,6 @@ var SidebarView = class extends import_obsidian.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     const titleContainer = container.createDiv({ cls: "linkmuse-sidebar-title" });
-    const logoIcon = titleContainer.createDiv({ cls: "linkmuse-logo-icon" });
-    (0, import_obsidian.setIcon)(logoIcon, "brain-cog");
     titleContainer.createEl("h2", { text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
     const mainSection = container.createDiv({ cls: "linkmuse-main-section" });
     const noteSelectionSection = mainSection.createDiv({ cls: "linkmuse-note-selection" });
@@ -1339,12 +1337,9 @@ var SidebarView = class extends import_obsidian.ItemView {
     this.registerEvent(this.app.workspace.on("layout-change", () => {
       this.updateCurrentNoteInfo();
     }));
-    const refreshInterval = window.setInterval(() => {
+    this.refreshInterval = window.setInterval(() => {
       this.updateCurrentNoteInfo();
     }, 3e3);
-    this.register(() => {
-      window.clearInterval(refreshInterval);
-    });
     const llmProviderSection = mainSection.createDiv({ cls: "linkmuse-llm-provider" });
     llmProviderSection.createEl("h4", { text: "LLM\u63D0\u4F9B\u5546" });
     const providerButtonContainer = llmProviderSection.createDiv({ cls: "linkmuse-provider-buttons" });
@@ -1383,69 +1378,59 @@ var SidebarView = class extends import_obsidian.ItemView {
         background-color: var(--interactive-accent);
         color: var(--text-on-accent);
       }
-      .linkmuse-message {
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 5px;
-        background-color: var(--background-secondary);
-      }
-      .linkmuse-message.error {
-        color: var(--text-error);
-        border-left: 3px solid var(--text-error);
-      }
       .linkmuse-note-info {
-        margin: 8px 0 16px;
+        margin: 8px 0;
+        padding: 8px;
+        border-radius: 6px;
+        background-color: var(--background-secondary);
       }
       .linkmuse-active-note {
         display: flex;
-        align-items: center;
-        padding: 8px 12px;
-        background-color: var(--background-secondary);
-        border-radius: 6px;
-        border-left: 3px solid var(--interactive-accent);
-      }
-      .linkmuse-note-icon {
-        margin-right: 8px;
+        flex-direction: column;
       }
       .linkmuse-note-name {
-        font-weight: 500;
+        font-weight: 600;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
       }
       .linkmuse-note-path {
-        font-size: 11px;
+        font-size: 0.8em;
         color: var(--text-muted);
         margin-top: 4px;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
       }
       .linkmuse-empty-state {
-        padding: 8px 12px;
-        background-color: var(--background-secondary);
-        border-radius: 6px;
-        border-left: 3px solid var(--text-muted);
         color: var(--text-muted);
         font-style: italic;
+      }
+      .linkmuse-results-container {
+        margin-top: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        background-color: var(--background-secondary);
+        max-height: 300px;
+        overflow-y: auto;
       }
       .linkmuse-loading {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 12px;
-        background-color: var(--background-secondary);
-        border-radius: 6px;
       }
       .linkmuse-loading-spinner {
         width: 16px;
         height: 16px;
-        border: 2px solid var(--interactive-accent);
+        border: 2px solid var(--text-muted);
+        border-top-color: var(--interactive-accent);
         border-radius: 50%;
-        border-top-color: transparent;
-        animation: spin 1s linear infinite;
+        animation: linkmuse-spin 1s linear infinite;
       }
-      @keyframes spin {
+      .linkmuse-error {
+        color: var(--text-error);
+      }
+      @keyframes linkmuse-spin {
         to { transform: rotate(360deg); }
       }
     `;
@@ -1488,50 +1473,47 @@ var SidebarView = class extends import_obsidian.ItemView {
     if (!activeView || !activeView.file) {
       const leaves = this.app.workspace.getLeavesOfType("markdown");
       for (const leaf of leaves) {
-        if (leaf.view instanceof import_obsidian.MarkdownView) {
-          activeView = leaf.view;
-          if (leaf.getRoot().activeLeaf === leaf) {
-            break;
-          }
+        const view = leaf.view;
+        if (view instanceof import_obsidian.MarkdownView && view.file) {
+          activeView = view;
+          break;
         }
       }
     }
     if (activeView && activeView.file) {
       const noteInfo = this.noteInfoContainer.createDiv({ cls: "linkmuse-active-note" });
-      const docIcon = noteInfo.createSpan({ cls: "linkmuse-note-icon" });
-      (0, import_obsidian.setIcon)(docIcon, "document");
-      noteInfo.createSpan({
-        text: activeView.file.basename,
-        cls: "linkmuse-note-name"
+      noteInfo.createDiv({
+        cls: "linkmuse-note-name",
+        text: activeView.file.name
       });
-      if (activeView.file.parent && activeView.file.parent.path !== "/") {
-        noteInfo.createEl("div", {
-          text: `\u8DEF\u5F84: ${activeView.file.parent.path}`,
-          cls: "linkmuse-note-path"
-        });
-      }
+      noteInfo.createDiv({
+        cls: "linkmuse-note-path",
+        text: activeView.file.path
+      });
     } else {
-      const emptyState = this.noteInfoContainer.createDiv({ cls: "linkmuse-empty-state" });
-      emptyState.createSpan({
-        text: "\u8BF7\u5148\u5728\u7F16\u8F91\u533A\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0",
-        cls: "linkmuse-empty-message"
+      this.noteInfoContainer.createDiv({
+        cls: "linkmuse-empty-state",
+        text: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0"
       });
     }
   }
   showResultMessage(message, isError = false) {
     this.resultsContainer.empty();
     const messageEl = this.resultsContainer.createDiv({
-      cls: `linkmuse-message ${isError ? "error" : ""}`,
-      text: message
+      cls: isError ? "linkmuse-error" : ""
     });
+    messageEl.setText(message);
   }
   showAnalyzing() {
     this.resultsContainer.empty();
     const loadingEl = this.resultsContainer.createDiv({ cls: "linkmuse-loading" });
     loadingEl.createDiv({ cls: "linkmuse-loading-spinner" });
-    loadingEl.createSpan({ text: "\u6B63\u5728\u5206\u6790\u4E2D..." });
+    loadingEl.createDiv({ text: "\u6B63\u5728\u5206\u6790..." });
   }
   async onClose() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
   }
 };
 

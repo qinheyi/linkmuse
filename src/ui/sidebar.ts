@@ -1,11 +1,12 @@
-import { ItemView, WorkspaceLeaf, ButtonComponent, Notice, MarkdownView, setIcon } from 'obsidian';
+import { ItemView, WorkspaceLeaf, ButtonComponent, Notice, MarkdownView, TFile } from 'obsidian';
 import LinkMuse from '../main';
 import { LLM_PROVIDERS } from '../settings';
 
 export class SidebarView extends ItemView {
   plugin: LinkMuse;
-  resultsContainer: HTMLElement;
   noteInfoContainer: HTMLElement;
+  resultsContainer: HTMLElement;
+  refreshInterval: number;
 
   constructor(leaf: WorkspaceLeaf, plugin: LinkMuse) {
     super(leaf);
@@ -27,9 +28,6 @@ export class SidebarView extends ItemView {
     // 创建标题区域，包含图标和文字
     const titleContainer = container.createDiv({ cls: 'linkmuse-sidebar-title' });
     
-    // 添加与左侧相同的图标
-    const logoIcon = titleContainer.createDiv({ cls: 'linkmuse-logo-icon' });
-    setIcon(logoIcon, 'brain-cog');
     
     // 创建标题文字
     titleContainer.createEl('h2', { text: 'LinkMuse 灵感跃迁' });
@@ -44,39 +42,28 @@ export class SidebarView extends ItemView {
     // 添加当前笔记信息显示区域
     this.noteInfoContainer = noteSelectionSection.createDiv({ cls: 'linkmuse-note-info' });
     
-    // 初始化当前笔记显示
+    // 初始化显示当前笔记
     this.updateCurrentNoteInfo();
     
-    // 注册工作区事件监听，在活动笔记变化时更新信息
-    this.registerEvent(
-      this.app.workspace.on('active-leaf-change', () => {
-        this.updateCurrentNoteInfo();
-      })
-    );
-    
-    // 监听文件打开事件
-    this.registerEvent(
-      this.app.workspace.on('file-open', () => {
-        this.updateCurrentNoteInfo();
-      })
-    );
-    
-    // 监听布局变化事件
-    this.registerEvent(
-      this.app.workspace.on('layout-change', () => {
-        this.updateCurrentNoteInfo();
-      })
-    );
-    
-    // 设置定时刷新，确保信息始终最新
-    const refreshInterval = window.setInterval(() => {
+    // 添加事件监听器，当活动叶子变化时更新笔记信息
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
       this.updateCurrentNoteInfo();
-    }, 3000); // 每3秒刷新一次
+    }));
     
-    // 在视图关闭时清除定时器
-    this.register(() => {
-      window.clearInterval(refreshInterval);
-    });
+    // 添加文件打开事件监听
+    this.registerEvent(this.app.workspace.on('file-open', () => {
+      this.updateCurrentNoteInfo();
+    }));
+    
+    // 添加布局变化事件监听
+    this.registerEvent(this.app.workspace.on('layout-change', () => {
+      this.updateCurrentNoteInfo();
+    }));
+    
+    // 设置定期刷新
+    this.refreshInterval = window.setInterval(() => {
+      this.updateCurrentNoteInfo();
+    }, 3000);
     
     // LLM提供商选择区域
     const llmProviderSection = mainSection.createDiv({ cls: 'linkmuse-llm-provider' });
@@ -121,69 +108,59 @@ export class SidebarView extends ItemView {
         background-color: var(--interactive-accent);
         color: var(--text-on-accent);
       }
-      .linkmuse-message {
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 5px;
-        background-color: var(--background-secondary);
-      }
-      .linkmuse-message.error {
-        color: var(--text-error);
-        border-left: 3px solid var(--text-error);
-      }
       .linkmuse-note-info {
-        margin: 8px 0 16px;
+        margin: 8px 0;
+        padding: 8px;
+        border-radius: 6px;
+        background-color: var(--background-secondary);
       }
       .linkmuse-active-note {
         display: flex;
-        align-items: center;
-        padding: 8px 12px;
-        background-color: var(--background-secondary);
-        border-radius: 6px;
-        border-left: 3px solid var(--interactive-accent);
-      }
-      .linkmuse-note-icon {
-        margin-right: 8px;
+        flex-direction: column;
       }
       .linkmuse-note-name {
-        font-weight: 500;
+        font-weight: 600;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
       }
       .linkmuse-note-path {
-        font-size: 11px;
+        font-size: 0.8em;
         color: var(--text-muted);
         margin-top: 4px;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
       }
       .linkmuse-empty-state {
-        padding: 8px 12px;
-        background-color: var(--background-secondary);
-        border-radius: 6px;
-        border-left: 3px solid var(--text-muted);
         color: var(--text-muted);
         font-style: italic;
+      }
+      .linkmuse-results-container {
+        margin-top: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        background-color: var(--background-secondary);
+        max-height: 300px;
+        overflow-y: auto;
       }
       .linkmuse-loading {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 12px;
-        background-color: var(--background-secondary);
-        border-radius: 6px;
       }
       .linkmuse-loading-spinner {
         width: 16px;
         height: 16px;
-        border: 2px solid var(--interactive-accent);
+        border: 2px solid var(--text-muted);
+        border-top-color: var(--interactive-accent);
         border-radius: 50%;
-        border-top-color: transparent;
-        animation: spin 1s linear infinite;
+        animation: linkmuse-spin 1s linear infinite;
       }
-      @keyframes spin {
+      .linkmuse-error {
+        color: var(--text-error);
+      }
+      @keyframes linkmuse-spin {
         to { transform: rotate(360deg); }
       }
     `;
@@ -239,76 +216,68 @@ export class SidebarView extends ItemView {
     this.resultsContainer = resultsSection.createDiv({ cls: 'linkmuse-results-container' });
   }
 
-  // 更新当前笔记信息
-  updateCurrentNoteInfo(): void {
+  // 更新当前笔记信息的方法
+  updateCurrentNoteInfo() {
     this.noteInfoContainer.empty();
     
-    // 尝试多种方式获取当前活动的Markdown视图
+    // 尝试获取当前活动的Markdown视图
     let activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     
-    // 如果没有找到，尝试从所有打开的叶子中查找
+    // 如果没有找到活动的Markdown视图，尝试在所有打开的叶子中查找
     if (!activeView || !activeView.file) {
-      // 遍历所有打开的叶子，找到当前活动的或第一个Markdown视图
       const leaves = this.app.workspace.getLeavesOfType('markdown');
       for (const leaf of leaves) {
-        if (leaf.view instanceof MarkdownView) {
-          activeView = leaf.view;
-          if (leaf.getRoot().activeLeaf === leaf) {
-            break; // 如果是活动叶子，优先使用
-          }
+        const view = leaf.view;
+        if (view instanceof MarkdownView && view.file) {
+          activeView = view;
+          break;
         }
       }
     }
     
     if (activeView && activeView.file) {
-      // 显示当前打开的笔记名称
+      // 如果有活动的笔记，显示其信息
       const noteInfo = this.noteInfoContainer.createDiv({ cls: 'linkmuse-active-note' });
-      
-      // 添加文档图标
-      const docIcon = noteInfo.createSpan({ cls: 'linkmuse-note-icon' });
-      setIcon(docIcon, 'document');
-      
-      // 添加笔记名称
-      noteInfo.createSpan({ 
-        text: activeView.file.basename,
-        cls: 'linkmuse-note-name'
+      noteInfo.createDiv({ 
+        cls: 'linkmuse-note-name', 
+        text: activeView.file.name 
       });
-      
-      // 添加文件路径提示(如果在子文件夹中)
-      if (activeView.file.parent && activeView.file.parent.path !== '/') {
-        noteInfo.createEl('div', {
-          text: `路径: ${activeView.file.parent.path}`,
-          cls: 'linkmuse-note-path'
-        });
-      }
+      noteInfo.createDiv({ 
+        cls: 'linkmuse-note-path', 
+        text: activeView.file.path 
+      });
     } else {
-      // 没有打开笔记的提示
-      const emptyState = this.noteInfoContainer.createDiv({ cls: 'linkmuse-empty-state' });
-      emptyState.createSpan({ 
-        text: '请先在编辑区打开一个笔记',
-        cls: 'linkmuse-empty-message'
+      // 如果没有活动的笔记，显示提示信息
+      this.noteInfoContainer.createDiv({ 
+        cls: 'linkmuse-empty-state', 
+        text: '请先打开一个笔记' 
       });
     }
   }
 
-  // 在结果区域显示消息
-  showResultMessage(message: string, isError: boolean = false): void {
+  // 显示结果消息的方法
+  showResultMessage(message: string, isError: boolean = false) {
     this.resultsContainer.empty();
-    const messageEl = this.resultsContainer.createDiv({ 
-      cls: `linkmuse-message ${isError ? 'error' : ''}`,
-      text: message
+    
+    const messageEl = this.resultsContainer.createDiv({
+      cls: isError ? 'linkmuse-error' : ''
     });
+    messageEl.setText(message);
   }
 
-  // 显示分析中状态
-  showAnalyzing(): void {
+  // 显示分析中状态的方法
+  showAnalyzing() {
     this.resultsContainer.empty();
+    
     const loadingEl = this.resultsContainer.createDiv({ cls: 'linkmuse-loading' });
     loadingEl.createDiv({ cls: 'linkmuse-loading-spinner' });
-    loadingEl.createSpan({ text: '正在分析中...' });
+    loadingEl.createDiv({ text: '正在分析...' });
   }
 
   async onClose(): Promise<void> {
     // 清理资源
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
   }
 }
