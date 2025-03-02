@@ -2,6 +2,7 @@ import { Plugin, PluginSettingTab, App, Setting, Notice, Modal, MarkdownView } f
 import { DEFAULT_SETTINGS, LinkMuseSettings } from './settings';
 import { SidebarView } from './ui/sidebar';
 import { LLMService } from './services/llm-service';
+import { setupHeaderLogo } from './ui/header';
 
 export default class LinkMuse extends Plugin {
   settings: LinkMuseSettings;
@@ -30,6 +31,9 @@ export default class LinkMuse extends Plugin {
     this.addRibbonIcon('brain-cog', 'LinkMuse', () => {
       this.activateView();
     });
+    
+    // 设置顶部面板Logo
+    setupHeaderLogo(this);
     
     // 注册命令
     this.addCommands();
@@ -169,6 +173,66 @@ class LinkMuseSettingTab extends PluginSettingTab {
       );
       
     new Setting(containerEl)
+      .setName('硅基流动 API 密钥')
+      .setDesc('输入您的硅基流动 API密钥（可选）')
+      .addText((text) =>
+        text
+          .setPlaceholder('sf-...')
+          .setValue(this.plugin.settings.siliconflowApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.siliconflowApiKey = value;
+            await this.plugin.saveSettings();
+          })
+      )
+      .addButton((button) =>
+        button.setButtonText('测试连接').onClick(async () => {
+          button.setButtonText('测试中...');
+          try {
+            if (!this.plugin.settings.siliconflowApiKey) {
+              new Notice('请先配置硅基流动 API 密钥');
+              return;
+            }
+            const result = await this.plugin.llmService.testSiliconFlow();
+            new Notice(`硅基流动 API连接测试: ${result ? '成功' : '失败'}`);
+          } catch (error) {
+            new Notice(`硅基流动 API连接测试失败: ${error.message}`);
+          } finally {
+            button.setButtonText('测试连接');
+          }
+        })
+      );
+      
+    new Setting(containerEl)
+      .setName('火山引擎 API 密钥')
+      .setDesc('输入您的火山引擎 API密钥（可选）')
+      .addText((text) =>
+        text
+          .setPlaceholder('volc-...')
+          .setValue(this.plugin.settings.volcApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.volcApiKey = value;
+            await this.plugin.saveSettings();
+          })
+      )
+      .addButton((button) =>
+        button.setButtonText('测试连接').onClick(async () => {
+          button.setButtonText('测试中...');
+          try {
+            if (!this.plugin.settings.volcApiKey) {
+              new Notice('请先配置火山引擎 API 密钥');
+              return;
+            }
+            const result = await this.plugin.llmService.testVolcEngine();
+            new Notice(`火山引擎 API连接测试: ${result ? '成功' : '失败'}`);
+          } catch (error) {
+            new Notice(`火山引擎 API连接测试失败: ${error.message}`);
+          } finally {
+            button.setButtonText('测试连接');
+          }
+        })
+      );
+      
+    new Setting(containerEl)
       .setName('默认模型')
       .setDesc('选择默认使用的LLM模型')
       .addDropdown((dropdown) => {
@@ -177,6 +241,10 @@ class LinkMuseSettingTab extends PluginSettingTab {
           .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
           .addOption('claude-3-opus', 'Claude 3 Opus')
           .addOption('claude-3-sonnet', 'Claude 3 Sonnet')
+          .addOption('siliconflow-mixtral-8x7b', '硅基流动 Mixtral-8x7B')
+          .addOption('siliconflow-llama3-70b', '硅基流动 Llama3-70B')
+          .addOption('volc-moonshot-v1', '火山引擎 Moonshot-V1')
+          .addOption('volc-mixtral-8x7b', '火山引擎 Mixtral-8x7B')
           .setValue(this.plugin.settings.defaultModel)
           .onChange(async (value) => {
             this.plugin.settings.defaultModel = value;

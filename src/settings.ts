@@ -3,6 +3,8 @@ export interface LinkMuseSettings {
   // API配置
   openaiApiKey: string;
   claudeApiKey: string;
+  siliconflowApiKey: string;
+  volcApiKey: string;
   defaultModel: string;
   
   // 功能设置
@@ -20,6 +22,8 @@ export const DEFAULT_SETTINGS: LinkMuseSettings = {
   // API配置
   openaiApiKey: '',
   claudeApiKey: '',
+  siliconflowApiKey: '',
+  volcApiKey: '',
   defaultModel: 'gpt-4',
   
   // 功能设置

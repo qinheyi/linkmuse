@@ -1282,6 +1282,8 @@ var import_obsidian2 = __toModule(require("obsidian"));
 var DEFAULT_SETTINGS = {
   openaiApiKey: "",
   claudeApiKey: "",
+  siliconflowApiKey: "",
+  volcApiKey: "",
   defaultModel: "gpt-4",
   maxNotesToAnalyze: 20,
   saveChainOfThought: true,
@@ -1343,6 +1345,8 @@ var LLMService = class {
   constructor(settings) {
     this.openaiEndpoint = "https://api.openai.com/v1/chat/completions";
     this.claudeEndpoint = "https://api.anthropic.com/v1/messages";
+    this.siliconflowEndpoint = "https://api.siliconflow.cn/v1/chat/completions";
+    this.volcEngineEndpoint = "https://api.volcengine.com/v1/chat/completions";
     this.settings = settings;
   }
   async testConnection() {
@@ -1351,6 +1355,10 @@ var LLMService = class {
         await this.testOpenAI();
       } else if (this.settings.defaultModel.startsWith("claude")) {
         await this.testClaude();
+      } else if (this.settings.defaultModel.startsWith("siliconflow")) {
+        await this.testSiliconFlow();
+      } else if (this.settings.defaultModel.startsWith("volc")) {
+        await this.testVolcEngine();
       }
       return true;
     } catch (error) {
@@ -1372,6 +1380,7 @@ var LLMService = class {
         "Content-Type": "application/json"
       }
     });
+    return true;
   }
   async testClaude() {
     if (!this.settings.claudeApiKey) {
@@ -1387,6 +1396,39 @@ var LLMService = class {
         "Content-Type": "application/json"
       }
     });
+    return true;
+  }
+  async testSiliconFlow() {
+    if (!this.settings.siliconflowApiKey) {
+      throw new Error("\u672A\u914D\u7F6E\u7845\u57FA\u6D41\u52A8API\u5BC6\u94A5");
+    }
+    await import_axios.default.post(this.siliconflowEndpoint, {
+      model: this.settings.defaultModel.replace("siliconflow-", ""),
+      messages: [{ role: "user", content: "Hello" }],
+      max_tokens: 5
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.siliconflowApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return true;
+  }
+  async testVolcEngine() {
+    if (!this.settings.volcApiKey) {
+      throw new Error("\u672A\u914D\u7F6E\u706B\u5C71\u5F15\u64CEAPI\u5BC6\u94A5");
+    }
+    await import_axios.default.post(this.volcEngineEndpoint, {
+      model: this.settings.defaultModel.replace("volc-", ""),
+      messages: [{ role: "user", content: "Hello" }],
+      max_tokens: 5
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.volcApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return true;
   }
   async generateBidirectionalLinks(notes) {
     const prompt = this.settings.customPromptTemplates.bidirectionalLinks.replace("{{notes}}", notes.join("\n---\n"));
@@ -1406,6 +1448,10 @@ var LLMService = class {
         return await this.sendOpenAIRequest(prompt);
       } else if (this.settings.defaultModel.startsWith("claude")) {
         return await this.sendClaudeRequest(prompt);
+      } else if (this.settings.defaultModel.startsWith("siliconflow")) {
+        return await this.sendSiliconFlowRequest(prompt);
+      } else if (this.settings.defaultModel.startsWith("volc")) {
+        return await this.sendVolcEngineRequest(prompt);
       }
       throw new Error("\u4E0D\u652F\u6301\u7684\u6A21\u578B\u7C7B\u578B");
     } catch (error) {
@@ -1439,7 +1485,48 @@ var LLMService = class {
     });
     return response.data.content[0].text;
   }
+  async sendSiliconFlowRequest(prompt) {
+    const response = await import_axios.default.post(this.siliconflowEndpoint, {
+      model: this.settings.defaultModel.replace("siliconflow-", ""),
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.siliconflowApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.choices[0].message.content;
+  }
+  async sendVolcEngineRequest(prompt) {
+    const response = await import_axios.default.post(this.volcEngineEndpoint, {
+      model: this.settings.defaultModel.replace("volc-", ""),
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.volcApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.choices[0].message.content;
+  }
 };
+
+// src/ui/header.ts
+function setupHeaderLogo(plugin) {
+  const titleEl = document.querySelector(".view-header-title");
+  if (!titleEl)
+    return;
+  titleEl.empty();
+  const logoContainer = titleEl.createDiv({ cls: "linkmuse-logo" });
+  const logoIcon = logoContainer.createDiv({ cls: "linkmuse-logo-icon" });
+  logoIcon.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 10 C70 10, 90 30, 90 50 C90 70, 70 90, 50 90 C30 90, 10 70, 10 50 C10 30, 30 10, 50 10 Z M50 30 C60 30, 70 40, 70 50 C70 60, 60 70, 50 70 C40 70, 30 60, 30 50 C30 40, 40 30, 50 30 Z" />
+    <path d="M30 30 L70 70 M30 70 L70 30" />
+  </svg>`;
+  logoContainer.createSpan({ text: "LinkMuse \u667A\u80FD\u5173\u8054" });
+}
 
 // src/main.ts
 var LinkMuse = class extends import_obsidian2.Plugin {
@@ -1452,6 +1539,7 @@ var LinkMuse = class extends import_obsidian2.Plugin {
     this.addRibbonIcon("brain-cog", "LinkMuse", () => {
       this.activateView();
     });
+    setupHeaderLogo(this);
     this.addCommands();
   }
   async onunload() {
@@ -1536,8 +1624,44 @@ var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.claudeApiKey = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian2.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u7845\u57FA\u6D41\u52A8 API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("sf-...").setValue(this.plugin.settings.siliconflowApiKey).onChange(async (value) => {
+      this.plugin.settings.siliconflowApiKey = value;
+      await this.plugin.saveSettings();
+    })).addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+      button.setButtonText("\u6D4B\u8BD5\u4E2D...");
+      try {
+        if (!this.plugin.settings.siliconflowApiKey) {
+          new import_obsidian2.Notice("\u8BF7\u5148\u914D\u7F6E\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5");
+          return;
+        }
+        const result = await this.plugin.llmService.testSiliconFlow();
+        new import_obsidian2.Notice(`\u7845\u57FA\u6D41\u52A8 API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
+      } catch (error) {
+        new import_obsidian2.Notice(`\u7845\u57FA\u6D41\u52A8 API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
+      } finally {
+        button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
+      }
+    }));
+    new import_obsidian2.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u706B\u5C71\u5F15\u64CE API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("volc-...").setValue(this.plugin.settings.volcApiKey).onChange(async (value) => {
+      this.plugin.settings.volcApiKey = value;
+      await this.plugin.saveSettings();
+    })).addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+      button.setButtonText("\u6D4B\u8BD5\u4E2D...");
+      try {
+        if (!this.plugin.settings.volcApiKey) {
+          new import_obsidian2.Notice("\u8BF7\u5148\u914D\u7F6E\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5");
+          return;
+        }
+        const result = await this.plugin.llmService.testVolcEngine();
+        new import_obsidian2.Notice(`\u706B\u5C71\u5F15\u64CE API\u8FDE\u63A5\u6D4B\u8BD5: ${result ? "\u6210\u529F" : "\u5931\u8D25"}`);
+      } catch (error) {
+        new import_obsidian2.Notice(`\u706B\u5C71\u5F15\u64CE API\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${error.message}`);
+      } finally {
+        button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
+      }
+    }));
     new import_obsidian2.Setting(containerEl).setName("\u9ED8\u8BA4\u6A21\u578B").setDesc("\u9009\u62E9\u9ED8\u8BA4\u4F7F\u7528\u7684LLM\u6A21\u578B").addDropdown((dropdown) => {
-      dropdown.addOption("gpt-4", "GPT-4").addOption("gpt-3.5-turbo", "GPT-3.5 Turbo").addOption("claude-3-opus", "Claude 3 Opus").addOption("claude-3-sonnet", "Claude 3 Sonnet").setValue(this.plugin.settings.defaultModel).onChange(async (value) => {
+      dropdown.addOption("gpt-4", "GPT-4").addOption("gpt-3.5-turbo", "GPT-3.5 Turbo").addOption("claude-3-opus", "Claude 3 Opus").addOption("claude-3-sonnet", "Claude 3 Sonnet").addOption("siliconflow-mixtral-8x7b", "\u7845\u57FA\u6D41\u52A8 Mixtral-8x7B").addOption("siliconflow-llama3-70b", "\u7845\u57FA\u6D41\u52A8 Llama3-70B").addOption("volc-moonshot-v1", "\u706B\u5C71\u5F15\u64CE Moonshot-V1").addOption("volc-mixtral-8x7b", "\u706B\u5C71\u5F15\u64CE Mixtral-8x7B").setValue(this.plugin.settings.defaultModel).onChange(async (value) => {
         this.plugin.settings.defaultModel = value;
         await this.plugin.saveSettings();
       });

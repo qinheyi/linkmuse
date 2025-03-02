@@ -1,0 +1,14 @@
+{
+  "openaiApiKey": "",
+  "claudeApiKey": "",
+  "defaultModel": "gpt-4",
+  "maxNotesToAnalyze": 50,
+  "saveChainOfThought": true,
+  "inspirationCount": 10,
+  "debugMode": false,
+  "customPromptTemplates": {
+    "bidirectionalLinks": "分析以下笔记内容，找出它们之间可能存在的关联：\n{{notes}}",
+    "inspiration": "基于以下笔记内容，生成{{count}}个创新的灵感和想法：\n{{notes}}",
+    "multimedia": "分析以下{{type}}内容，提供详细的理解和总结：\n{{content}}"
+  }
+}

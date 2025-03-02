@@ -1,0 +1,36 @@
+.linkmuse-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.linkmuse-logo-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.linkmuse-logo-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--text-normal);
+}
+
+.workspace-leaf-content[data-type="linkmuse-sidebar"] .view-header {
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.workspace-leaf-content[data-type="linkmuse-sidebar"] .view-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-leaf-content[data-type="linkmuse-sidebar"] .view-header-title-container:after {
+  display: none;
+}
