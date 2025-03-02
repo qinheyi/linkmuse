@@ -146,6 +146,8 @@ class LinkMuseSettingTab extends PluginSettingTab {
     // API配置部分
     containerEl.createEl('h3', { text: 'API 配置' });
     
+    // 注释掉OpenAI和Claude的设置
+    /*
     new Setting(containerEl)
       .setName('OpenAI API 密钥')
       .setDesc('输入您的OpenAI API密钥')
@@ -171,6 +173,7 @@ class LinkMuseSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+    */
       
     new Setting(containerEl)
       .setName('硅基流动 API 密钥')
@@ -183,7 +186,27 @@ class LinkMuseSettingTab extends PluginSettingTab {
             this.plugin.settings.siliconflowApiKey = value;
             await this.plugin.saveSettings();
           })
-      )
+      );
+
+    new Setting(containerEl)
+      .setName('硅基流动模型')
+      .setDesc('选择要使用的硅基流动模型')
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'DeepSeek-R1-Distill-Qwen-7B')
+          .addOption('Qwen/Qwen2-7B-Instruct', 'Qwen2-7B-Instruct')
+          .addOption('internlm/internlm2_5-7b-chat', 'InternLM2-7B-Chat')
+          .addOption('THUDM/glm-4-9b-chat', 'GLM-4-9B-Chat')
+          .setValue(this.plugin.settings.siliconflowModel)
+          .onChange(async (value) => {
+            this.plugin.settings.siliconflowModel = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('测试硅基流动连接')
+      .setDesc('测试硅基流动API连接是否正常')
       .addButton((button) =>
         button.setButtonText('测试连接').onClick(async () => {
           button.setButtonText('测试中...');
@@ -213,7 +236,27 @@ class LinkMuseSettingTab extends PluginSettingTab {
             this.plugin.settings.volcApiKey = value;
             await this.plugin.saveSettings();
           })
-      )
+      );
+
+    new Setting(containerEl)
+      .setName('火山引擎模型')
+      .setDesc('选择要使用的火山引擎模型')
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption('deepseek-r1-250120', 'DeepSeek-R1')
+          .addOption('deepseek-v3-241226', 'DeepSeek-V3')
+          .addOption('deepseek-r1-distill-qwen-32b-250120', 'DeepSeek-R1-Distill-Qwen-32B')
+          .addOption('deepseek-r1-distill-qwen-7b-250120', 'DeepSeek-R1-Distill-Qwen-7B')
+          .setValue(this.plugin.settings.volcModel)
+          .onChange(async (value) => {
+            this.plugin.settings.volcModel = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('测试火山引擎连接')
+      .setDesc('测试火山引擎API连接是否正常')
       .addButton((button) =>
         button.setButtonText('测试连接').onClick(async () => {
           button.setButtonText('测试中...');
@@ -231,26 +274,6 @@ class LinkMuseSettingTab extends PluginSettingTab {
           }
         })
       );
-      
-    new Setting(containerEl)
-      .setName('默认模型')
-      .setDesc('选择默认使用的LLM模型')
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption('gpt-4', 'GPT-4')
-          .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
-          .addOption('claude-3-opus', 'Claude 3 Opus')
-          .addOption('claude-3-sonnet', 'Claude 3 Sonnet')
-          .addOption('siliconflow-mixtral-8x7b', '硅基流动 Mixtral-8x7B')
-          .addOption('siliconflow-llama3-70b', '硅基流动 Llama3-70B')
-          .addOption('volc-moonshot-v1', '火山引擎 Moonshot-V1')
-          .addOption('volc-mixtral-8x7b', '火山引擎 Mixtral-8x7B')
-          .setValue(this.plugin.settings.defaultModel)
-          .onChange(async (value) => {
-            this.plugin.settings.defaultModel = value;
-            await this.plugin.saveSettings();
-          });
-      });
       
     // 功能设置部分
     containerEl.createEl('h3', { text: '功能设置' });

@@ -1,6 +1,8 @@
 {
   "openaiApiKey": "",
   "claudeApiKey": "",
+  "siliconflowApiKey": "",
+  "volcApiKey": "",
   "defaultModel": "gpt-4",
   "maxNotesToAnalyze": 50,
   "saveChainOfThought": true,

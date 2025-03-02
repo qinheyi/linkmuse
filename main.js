@@ -1616,18 +1616,17 @@ var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "LinkMuse \u8BBE\u7F6E" });
     containerEl.createEl("h3", { text: "API \u914D\u7F6E" });
-    new import_obsidian2.Setting(containerEl).setName("OpenAI API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684OpenAI API\u5BC6\u94A5").addText((text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey).onChange(async (value) => {
-      this.plugin.settings.openaiApiKey = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian2.Setting(containerEl).setName("Claude API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684Anthropic Claude API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("sk-ant-...").setValue(this.plugin.settings.claudeApiKey).onChange(async (value) => {
-      this.plugin.settings.claudeApiKey = value;
-      await this.plugin.saveSettings();
-    }));
     new import_obsidian2.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8 API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u7845\u57FA\u6D41\u52A8 API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("sf-...").setValue(this.plugin.settings.siliconflowApiKey).onChange(async (value) => {
       this.plugin.settings.siliconflowApiKey = value;
       await this.plugin.saveSettings();
-    })).addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+    }));
+    new import_obsidian2.Setting(containerEl).setName("\u7845\u57FA\u6D41\u52A8\u6A21\u578B").setDesc("\u9009\u62E9\u8981\u4F7F\u7528\u7684\u7845\u57FA\u6D41\u52A8\u6A21\u578B").addDropdown((dropdown) => {
+      dropdown.addOption("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "DeepSeek-R1-Distill-Qwen-7B").addOption("Qwen/Qwen2-7B-Instruct", "Qwen2-7B-Instruct").addOption("internlm/internlm2_5-7b-chat", "InternLM2-7B-Chat").addOption("THUDM/glm-4-9b-chat", "GLM-4-9B-Chat").setValue(this.plugin.settings.siliconflowModel).onChange(async (value) => {
+        this.plugin.settings.siliconflowModel = value;
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("\u6D4B\u8BD5\u7845\u57FA\u6D41\u52A8\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u7845\u57FA\u6D41\u52A8API\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
       button.setButtonText("\u6D4B\u8BD5\u4E2D...");
       try {
         if (!this.plugin.settings.siliconflowApiKey) {
@@ -1645,7 +1644,14 @@ var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
     new import_obsidian2.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE API \u5BC6\u94A5").setDesc("\u8F93\u5165\u60A8\u7684\u706B\u5C71\u5F15\u64CE API\u5BC6\u94A5\uFF08\u53EF\u9009\uFF09").addText((text) => text.setPlaceholder("volc-...").setValue(this.plugin.settings.volcApiKey).onChange(async (value) => {
       this.plugin.settings.volcApiKey = value;
       await this.plugin.saveSettings();
-    })).addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+    }));
+    new import_obsidian2.Setting(containerEl).setName("\u706B\u5C71\u5F15\u64CE\u6A21\u578B").setDesc("\u9009\u62E9\u8981\u4F7F\u7528\u7684\u706B\u5C71\u5F15\u64CE\u6A21\u578B").addDropdown((dropdown) => {
+      dropdown.addOption("deepseek-r1-250120", "DeepSeek-R1").addOption("deepseek-v3-241226", "DeepSeek-V3").addOption("deepseek-r1-distill-qwen-32b-250120", "DeepSeek-R1-Distill-Qwen-32B").addOption("deepseek-r1-distill-qwen-7b-250120", "DeepSeek-R1-Distill-Qwen-7B").setValue(this.plugin.settings.volcModel).onChange(async (value) => {
+        this.plugin.settings.volcModel = value;
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian2.Setting(containerEl).setName("\u6D4B\u8BD5\u706B\u5C71\u5F15\u64CE\u8FDE\u63A5").setDesc("\u6D4B\u8BD5\u706B\u5C71\u5F15\u64CEAPI\u8FDE\u63A5\u662F\u5426\u6B63\u5E38").addButton((button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
       button.setButtonText("\u6D4B\u8BD5\u4E2D...");
       try {
         if (!this.plugin.settings.volcApiKey) {
@@ -1660,12 +1666,6 @@ var LinkMuseSettingTab = class extends import_obsidian2.PluginSettingTab {
         button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
       }
     }));
-    new import_obsidian2.Setting(containerEl).setName("\u9ED8\u8BA4\u6A21\u578B").setDesc("\u9009\u62E9\u9ED8\u8BA4\u4F7F\u7528\u7684LLM\u6A21\u578B").addDropdown((dropdown) => {
-      dropdown.addOption("gpt-4", "GPT-4").addOption("gpt-3.5-turbo", "GPT-3.5 Turbo").addOption("claude-3-opus", "Claude 3 Opus").addOption("claude-3-sonnet", "Claude 3 Sonnet").addOption("siliconflow-mixtral-8x7b", "\u7845\u57FA\u6D41\u52A8 Mixtral-8x7B").addOption("siliconflow-llama3-70b", "\u7845\u57FA\u6D41\u52A8 Llama3-70B").addOption("volc-moonshot-v1", "\u706B\u5C71\u5F15\u64CE Moonshot-V1").addOption("volc-mixtral-8x7b", "\u706B\u5C71\u5F15\u64CE Mixtral-8x7B").setValue(this.plugin.settings.defaultModel).onChange(async (value) => {
-        this.plugin.settings.defaultModel = value;
-        await this.plugin.saveSettings();
-      });
-    });
     containerEl.createEl("h3", { text: "\u529F\u80FD\u8BBE\u7F6E" });
     new import_obsidian2.Setting(containerEl).setName("\u5206\u6790\u7B14\u8BB0\u6570\u91CF").setDesc("\u8BBE\u7F6E\u667A\u80FD\u5173\u8054\u5206\u6790\u65F6\u7684\u6700\u5927\u7B14\u8BB0\u6570\u91CF").addSlider((slider) => slider.setLimits(5, 50, 5).setValue(this.plugin.settings.maxNotesToAnalyze).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.maxNotesToAnalyze = value;
