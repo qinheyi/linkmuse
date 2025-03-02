@@ -1,9 +1,10 @@
-import { ItemView, WorkspaceLeaf, ButtonComponent, Notice, MarkdownView } from 'obsidian';
+import { ItemView, WorkspaceLeaf, ButtonComponent, Notice, MarkdownView, setIcon } from 'obsidian';
 import LinkMuse from '../main';
 import { LLM_PROVIDERS } from '../settings';
 
 export class SidebarView extends ItemView {
   plugin: LinkMuse;
+  resultsContainer: HTMLElement;
 
   constructor(leaf: WorkspaceLeaf, plugin: LinkMuse) {
     super(leaf);
@@ -25,6 +26,9 @@ export class SidebarView extends ItemView {
     // 创建标题区域，包含图标和文字
     const titleContainer = container.createDiv({ cls: 'linkmuse-sidebar-title' });
     
+    // 添加与左侧相同的图标
+    const logoIcon = titleContainer.createDiv({ cls: 'linkmuse-logo-icon' });
+    setIcon(logoIcon, 'brain-cog');
     
     // 创建标题文字
     titleContainer.createEl('h2', { text: 'LinkMuse 灵感跃迁' });
@@ -79,6 +83,16 @@ export class SidebarView extends ItemView {
         background-color: var(--interactive-accent);
         color: var(--text-on-accent);
       }
+      .linkmuse-message {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        background-color: var(--background-secondary);
+      }
+      .linkmuse-message.error {
+        color: var(--text-error);
+        border-left: 3px solid var(--text-error);
+      }
     `;
     document.head.appendChild(style);
     
@@ -114,10 +128,11 @@ export class SidebarView extends ItemView {
       cls: 'mod-cta'
     });
     linkButton.addEventListener('click', () => {
-      // 获取当前活动的笔记视图
+      // 检查是否已打开笔记
       const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
       if (!activeView || !activeView.file) {
-        new Notice('请先打开一个笔记');
+        // 在侧边栏显示错误消息，而不是弹出提示
+        this.showResultMessage('请先打开一个笔记', true);
         return;
       }
       this.plugin.generateUnidirectionalLinks();
@@ -129,13 +144,37 @@ export class SidebarView extends ItemView {
       cls: 'mod-cta'
     });
     inspirationButton.addEventListener('click', () => {
+      // 检查是否已打开笔记
+      const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+      if (!activeView || !activeView.file) {
+        // 在侧边栏显示错误消息，而不是弹出提示
+        this.showResultMessage('请先打开一个笔记', true);
+        return;
+      }
       this.plugin.generateInspiration();
     });
     
     // 结果展示区域
     const resultsSection = container.createDiv({ cls: 'linkmuse-results' });
     resultsSection.createEl('h3', { text: '结果' });
-    resultsSection.createDiv({ cls: 'linkmuse-results-container' });
+    this.resultsContainer = resultsSection.createDiv({ cls: 'linkmuse-results-container' });
+  }
+
+  // 在结果区域显示消息
+  showResultMessage(message: string, isError: boolean = false): void {
+    this.resultsContainer.empty();
+    const messageEl = this.resultsContainer.createDiv({ 
+      cls: `linkmuse-message ${isError ? 'error' : ''}`,
+      text: message
+    });
+  }
+
+  // 显示分析中状态
+  showAnalyzing(): void {
+    this.resultsContainer.empty();
+    const loadingEl = this.resultsContainer.createDiv({ cls: 'linkmuse-loading' });
+    loadingEl.createDiv({ cls: 'linkmuse-loading-spinner' });
+    loadingEl.createSpan({ text: '正在分析中...' });
   }
 
   async onClose(): Promise<void> {

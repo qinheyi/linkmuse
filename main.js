@@ -1312,16 +1312,29 @@ var SidebarView = class extends import_obsidian.ItemView {
     super(leaf);
     this.plugin = plugin;
   }
+
   getViewType() {
     return "linkmuse-sidebar";
   }
+
   getDisplayText() {
     return "LinkMuse";
   }
+  
+  // 添加getIcon方法，返回视图的图标名称
+  getIcon() {
+    return "brain-cog";
+  }
+
   async onOpen() {
     const container = this.containerEl.children[1];
     container.empty();
     const titleContainer = container.createDiv({ cls: "linkmuse-sidebar-title" });
+    
+    // 添加与左侧相同的图标
+    const logoIcon = titleContainer.createDiv({ cls: "linkmuse-logo-icon" });
+    (0, import_obsidian.setIcon)(logoIcon, "brain-cog");
+    
     titleContainer.createEl("h2", { text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
     const mainSection = container.createDiv({ cls: "linkmuse-main-section" });
     const noteSelectionSection = mainSection.createDiv({ cls: "linkmuse-note-selection" });
@@ -1364,6 +1377,69 @@ var SidebarView = class extends import_obsidian.ItemView {
         background-color: var(--interactive-accent);
         color: var(--text-on-accent);
       }
+      .linkmuse-message {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        background-color: var(--background-secondary);
+      }
+      .linkmuse-message.error {
+        color: var(--text-error);
+        border-left: 3px solid var(--text-error);
+      }
+      /* 确保所有图标颜色正确 */
+      .workspace-leaf-content[data-type="linkmuse-sidebar"] svg.lucide-brain-cog {
+        color: var(--text-normal);
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2px;
+      }
+      /* 按钮图标样式 */
+      .linkmuse-btn-icon {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .linkmuse-btn-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+      /* 优化按钮区域布局 */
+      .linkmuse-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 15px 0;
+      }
+      .linkmuse-actions button {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        padding: 8px 12px;
+      }
+      /* 加载状态 */
+      .linkmuse-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        background-color: var(--background-secondary);
+      }
+      .linkmuse-loading-spinner {
+        border: 2px solid var(--background-modifier-border);
+        border-top: 2px solid var(--interactive-accent);
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        animation: linkmuse-spin 1s linear infinite;
+      }
+      @keyframes linkmuse-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     `;
     document.head.appendChild(style);
     Object.entries(LLM_PROVIDERS).forEach(([key, name]) => {
@@ -1380,30 +1456,64 @@ var SidebarView = class extends import_obsidian.ItemView {
       }
     });
     const actionSection = mainSection.createDiv({ cls: "linkmuse-actions" });
+    
+    // 创建"生成智能单向关联"按钮（带图标）
     const linkButton = actionSection.createEl("button", {
-      text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054",
       cls: "mod-cta"
     });
+    // 创建一个包含图标和文本的容器
+    const linkBtnContent = linkButton.createDiv({ cls: "linkmuse-btn-icon" });
+    // 添加图标
+    const linkBtnIcon = linkBtnContent.createDiv();
+    (0, import_obsidian.setIcon)(linkBtnIcon, "brain-cog");
+    // 添加文本
+    linkBtnContent.createSpan({ text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054" });
+    
     linkButton.addEventListener("click", () => {
-      const activeView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
-      if (!activeView || !activeView.file) {
-        new import_obsidian.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
-        return;
-      }
+      // 直接调用 plugin 中的命令逻辑，而不进行客户端检查
       this.plugin.generateUnidirectionalLinks();
     });
+    
+    // 创建"灵感跃迁"按钮（带图标）
     const inspirationButton = actionSection.createEl("button", {
-      text: "\u7075\u611F\u8DC3\u8FC1",
       cls: "mod-cta"
     });
+    // 创建一个包含图标和文本的容器
+    const inspirationBtnContent = inspirationButton.createDiv({ cls: "linkmuse-btn-icon" });
+    // 添加图标
+    const inspirationBtnIcon = inspirationBtnContent.createDiv();
+    (0, import_obsidian.setIcon)(inspirationBtnIcon, "brain-cog");
+    // 添加文本
+    inspirationBtnContent.createSpan({ text: "\u7075\u611F\u8DC3\u8FC1" });
+    
     inspirationButton.addEventListener("click", () => {
       this.plugin.generateInspiration();
     });
+    
     const resultsSection = container.createDiv({ cls: "linkmuse-results" });
     resultsSection.createEl("h3", { text: "\u7ED3\u679C" });
-    resultsSection.createDiv({ cls: "linkmuse-results-container" });
+    this.resultsContainer = resultsSection.createDiv({ cls: "linkmuse-results-container" });
   }
+
+  // 显示分析中状态
+  showAnalyzing() {
+    this.resultsContainer.empty();
+    const loadingEl = this.resultsContainer.createDiv({ cls: "linkmuse-loading" });
+    loadingEl.createDiv({ cls: "linkmuse-loading-spinner" });
+    loadingEl.createSpan({ text: "\u6B63\u5728\u5206\u6790\u4E2D..." });
+  }
+
+  // 在结果区域显示消息
+  showResultMessage(message, isError = false) {
+    this.resultsContainer.empty();
+    const messageEl = this.resultsContainer.createDiv({ 
+      cls: `linkmuse-message ${isError ? 'error' : ''}`,
+      text: message
+    });
+  }
+
   async onClose() {
+    // 清理资源
   }
 };
 
@@ -1773,17 +1883,35 @@ var NoteLinkService = class {
 
 // src/ui/header.ts
 function setupHeaderLogo(plugin) {
+  // 获取顶部面板元素
   const titleEl = document.querySelector(".view-header-title");
   if (!titleEl)
     return;
+  
+  // 添加一个自定义样式以确保图标颜色正确
+  const style = document.createElement("style");
+  style.textContent = `
+    .linkmuse-logo-icon svg.lucide-brain-cog {
+      color: var(--text-normal);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2px;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // 清空现有内容
   titleEl.empty();
+  
+  // 创建Logo容器
   const logoContainer = titleEl.createDiv({ cls: "linkmuse-logo" });
+  
+  // 创建Logo图标
   const logoIcon = logoContainer.createDiv({ cls: "linkmuse-logo-icon" });
-  logoIcon.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <path d="M50 5 C70 5, 85 20, 85 40 C85 55, 75 65, 60 70 C60 75, 65 80, 65 85 C65 90, 60 95, 50 95 C40 95, 35 90, 35 85 C35 80, 40 75, 40 70 C25 65, 15 55, 15 40 C15 20, 30 5, 50 5 Z" />
-    <path d="M35 40 C35 45, 40 50, 45 50 M55 50 C60 50, 65 45, 65 40" />
-    <path d="M30 25 C40 20, 60 20, 70 25" />
-  </svg>`;
+  // 使用与左侧相同的brain-cog图标
+  (0, import_obsidian2.setIcon)(logoIcon, "brain-cog");
+  
+  // 创建Logo文字
   logoContainer.createSpan({ text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
 }
 
@@ -1854,35 +1982,115 @@ var LinkMuse = class extends import_obsidian2.Plugin {
       new import_obsidian2.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
       return;
     }
+    
     const currentFile = activeView.file;
+    
     try {
+      // 获取侧边栏视图
+      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      
+      // 如果侧边栏打开，显示分析中状态
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showAnalyzing();
+      }
+      
+      // 创建持续显示的加载提示框
       const loadingNotice = new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...", 0);
-      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, this.settings.maxNotesToAnalyze);
+      
+      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(
+        currentFile,
+        this.settings.maxNotesToAnalyze
+      );
+      
+      // 关闭加载提示框
       loadingNotice.hide();
+    
       if (potentialLinks.length === 0) {
         new import_obsidian2.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
+        // 如果侧边栏打开，显示未找到关联的消息
+        if (sidebarView && sidebarView instanceof SidebarView) {
+          sidebarView.showResultMessage("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
+        }
         return;
       }
+    
+      // 构建输出内容
       let output = "## \u6F5C\u5728\u7684\u7B14\u8BB0\u5173\u8054\n\n";
-      potentialLinks.forEach((link) => {
+      potentialLinks.forEach(link => {
         output += `\u5F53\u524D\u7B14\u8BB0\u548C[[${link.noteName}]]\u6F5C\u5728\u7684\u5173\u8054\uFF1A${link.content}\uFF0C\u5173\u8054\u7A0B\u5EA6\uFF1A${link.relevanceScore}
 
 `;
       });
+    
+      // 将结果插入到当前笔记末尾
       const editor = activeView.editor;
       const currentContent = editor.getValue();
       editor.setValue(currentContent + "\n\n" + output);
+    
+      // 显示成功通知
       new import_obsidian2.Notice(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
+      
+      // 如果侧边栏打开，显示成功消息
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054\uFF0C\u5E76\u5DF2\u63D2\u5165\u5230\u5F53\u524D\u7B14\u8BB0\u4E2D`);
+      }
     } catch (error) {
       console.error("\u751F\u6210\u5355\u5411\u5173\u8054\u65F6\u51FA\u9519:", error);
       new import_obsidian2.Notice("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
+      
+      // 如果侧边栏打开，显示错误消息
+      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F", true);
+      }
     }
   }
   async analyzeNoteCombinations() {
     new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054...");
   }
   async generateInspiration() {
-    new import_obsidian2.Notice("\u6B63\u5728\u751F\u6210\u7075\u611F\u8DC3\u8FC1...");
+    try {
+      // 获取侧边栏视图
+      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      
+      // 如果侧边栏打开，显示分析中状态
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showAnalyzing();
+      }
+      
+      // 创建持续显示的加载提示框
+      const loadingNotice = new import_obsidian2.Notice("\u6B63\u5728\u751F\u6210\u7075\u611F\u8DC3\u8FC1...", 0);
+      
+      // 调用灵感生成逻辑
+      // TODO: 实现灵感跃迁的具体功能
+      
+      // 这里是模拟调用，实际项目中应替换为真实的API调用
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // 关闭加载提示框
+      loadingNotice.hide();
+      
+      // 显示成功通知
+      new import_obsidian2.Notice("\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u5B8C\u6210");
+      
+      // 如果侧边栏打开，显示成功消息
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u5F00\u53D1\u4E2D...");
+      }
+    } catch (error) {
+      console.error("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519:", error);
+      new import_obsidian2.Notice("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
+      
+      // 如果侧边栏打开，显示错误消息
+      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      if (sidebarView && sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519", true);
+      }
+    }
   }
   async analyzeMultimedia() {
     new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9...");
