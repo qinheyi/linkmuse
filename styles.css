@@ -67,3 +67,101 @@ svg.lucide-brain-cog {
   width: 16px;
   height: 16px;
 }
+
+/* LLM提供商按钮样式 */
+.linkmuse-provider-buttons {
+  display: flex;
+  gap: 5px;
+  margin: 8px 0;
+}
+
+.linkmuse-provider-button {
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.linkmuse-provider-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.linkmuse-provider-button.is-active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* 笔记选择区域样式 */
+.linkmuse-note-selection {
+  margin-bottom: 15px;
+}
+
+.linkmuse-note-info {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 8px;
+  background-color: var(--background-secondary);
+}
+
+.linkmuse-active-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.linkmuse-note-name {
+  font-weight: bold;
+  font-size: 16px;
+  color: var(--text-normal);
+}
+
+.linkmuse-note-path {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 多笔记选择区域样式 */
+.linkmuse-multi-note-selection {
+  margin-top: 15px;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 10px;
+}
+
+.linkmuse-note-list {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  margin: 8px 0;
+  padding: 8px;
+  background-color: var(--background-secondary);
+}
+
+.linkmuse-note-list-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.linkmuse-note-list-item input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.linkmuse-note-list-placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 13px;
+  text-align: center;
+}
+
+.linkmuse-select-notes-button {
+  width: 100%;
+  margin-top: 5px;
+}

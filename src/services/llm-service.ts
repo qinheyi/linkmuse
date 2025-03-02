@@ -1,4 +1,5 @@
 import { LinkMuseSettings } from '../settings';
+import { App } from 'obsidian';
 import axios from 'axios';
 
 export class LLMService {
@@ -143,12 +144,13 @@ export class LLMService {
     return await this.sendRequest(prompt);
   }
 
-  async generateInspiration(notes: string[]): Promise<string> {
+  async generateInspiration(noteData: [string, string]): Promise<string> {
+    const [noteTitle, noteContent] = noteData;
     const prompt = this.settings.customPromptTemplates.inspiration
-      .replace('{{notes}}', notes.join('\n---\n'))
-      .replace('{{count}}', this.settings.inspirationCount.toString());
+      .replace('{{title1}}', noteTitle)
+      .replace('{{content1}}', this.truncateContent(noteContent, 2000));
     
-    return await this.sendRequest(prompt);
+    return await this.sendPrompt(prompt);
   }
 
   async analyzeMultimedia(type: string, content: string): Promise<string> {
@@ -241,23 +243,23 @@ export class LLMService {
     const timestamp = Math.floor(Date.now() / 1000);
     const requestId = `${timestamp}-${Math.random().toString(36).substring(2, 15)}`;
     
-    const response = await this.app.request({
-      url: this.volcEngineEndpoint,
-      method: 'POST',
-      body: JSON.stringify({
+    const response = await axios.post(
+      this.volcEngineEndpoint,
+      {
         model: this.settings.volcModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
-      }),
-      headers: {
-        'Authorization': `Bearer ${this.settings.volcApiKey}`,
-        'Content-Type': 'application/json',
-        'X-Request-Id': requestId
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.settings.volcApiKey}`,
+          'Content-Type': 'application/json',
+          'X-Request-Id': requestId
+        }
       }
-    });
+    );
 
-    const responseData = JSON.parse(response);
-    return responseData.choices[0].message.content;
+    return response.data.choices[0].message.content;
   }
 
   // 向LLM发送提示并获取响应
@@ -280,6 +282,56 @@ export class LLMService {
       console.error('LLM API调用失败:', error);
       throw error;
     }
+  }
+
+  // 发送提示到OpenAI API
+  private async sendOpenAIPrompt(prompt: string): Promise<any> {
+    if (!this.settings.openaiApiKey) {
+      throw new Error('未配置OpenAI API密钥');
+    }
+
+    const response = await axios.post(
+      this.openaiEndpoint,
+      {
+        model: this.settings.defaultModel,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 1000
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.settings.openaiApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.choices[0].message.content;
+  }
+
+  // 发送提示到Claude API
+  private async sendClaudePrompt(prompt: string): Promise<any> {
+    if (!this.settings.claudeApiKey) {
+      throw new Error('未配置Claude API密钥');
+    }
+
+    const response = await axios.post(
+      this.claudeEndpoint,
+      {
+        model: this.settings.defaultModel,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 1000
+      },
+      {
+        headers: {
+          'x-api-key': this.settings.claudeApiKey,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.content[0].text;
   }
 
   // 发送提示到硅基流动API
@@ -313,23 +365,36 @@ export class LLMService {
       throw new Error('未配置火山引擎API密钥');
     }
 
-    const response = await axios.post(
-      this.volcEngineEndpoint,
-      {
-        model: this.settings.volcModel,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1000
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${this.settings.volcApiKey}`,
-          'Content-Type': 'application/json'
+    try {
+      console.log("准备向火山引擎发送请求");
+      
+      // 临时测试方案：如果火山引擎出现问题，返回模拟数据
+      console.log("火山引擎API集成尚未完全解决，目前返回模拟数据");
+      return "模拟的火山引擎API响应：" + prompt.substring(0, 50) + "...";
+      
+      /* 暂时注释掉实际API调用，直到API问题解决
+      const response = await axios.post(
+        this.volcEngineEndpoint,
+        {
+          model: this.settings.volcModel,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 1000
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.settings.volcApiKey}`,
+            'Content-Type': 'application/json'
+          }
         }
-      }
-    );
+      );
 
-    return response.data.choices[0].message.content;
+      return response.data.choices[0].message.content;
+      */
+    } catch (error) {
+      console.error("火山引擎API调用失败:", error);
+      throw new Error(`火山引擎API调用失败: ${error.message}`);
+    }
   }
 
   // 分析笔记关联性
@@ -337,99 +402,86 @@ export class LLMService {
     explanation: string,
     relevanceScore: number
   }> {
-    const prompt = `请分析以下两个笔记之间的关联性：
-
-笔记1标题：${title1}
-笔记1内容：
-${content1}
-
-笔记2标题：${title2}
-笔记2内容：
-${content2}
-
-请提供：
-1. 关联性解释（首先分析笔记标题之间的关联性，这是最主要的判断依据；然后参考笔记内容作为辅助，进一步理解标题可能表达的含义。如果标题之间没有明显关联，则分析笔记内容可能想要阐述的核心意义，再进行关联分析）
-2. 关联程度评分（0-1之间的数值，其中0表示完全无关，1表示高度相关）。
-
-请以JSON格式返回结果，格式如下：
-{
-  "explanation": "关联性解释",
-  "relevanceScore": 0.5
-}
-
-注意：请直接返回JSON格式的结果，不要包含Markdown代码块标记。`;
-
+    // console.log(`开始分析笔记关联性: "${title1}" 和 "${title2}"`);
+    
     try {
-      const response = await this.sendPrompt(prompt);
+      // 获取设置中的笔记关联提示模板
+      const promptTemplate = this.settings.customPromptTemplates?.noteRelevance || 
+        '请分析以下两篇笔记的潜在关联性。\n\n第一篇笔记标题: {{title1}}\n内容: {{content1}}\n\n第二篇笔记标题: {{title2}}\n内容: {{content2}}\n\n请描述这两篇笔记之间可能存在的关联，并给出一个0-1之间的关联度分数。\n输出格式为JSON: {"explanation": "关联解释", "relevanceScore": 关联度分数}';
       
-      // 清理响应文本，移除可能的Markdown代码块标记
-      const cleanResponse = response.replace(/^```json\n|^```\n|```$/gm, '').trim();
+      // console.log("使用笔记关联分析提示模板:", promptTemplate.substring(0, 50) + "...");
+      
+      // 构建完整提示
+      const prompt = promptTemplate
+        .replace('{{title1}}', title1)
+        .replace('{{title2}}', title2)
+        .replace('{{content1}}', this.truncateContent(content1, 1000))
+        .replace('{{content2}}', this.truncateContent(content2, 1000));
+      
+      // console.log(`提示长度: ${prompt.length} 字符`);
+      
+      // 检查是否配置了API密钥
+      const hasApiKey = this.settings.defaultProvider === 'siliconflow' && this.settings.siliconflowApiKey || 
+                        this.settings.defaultProvider === 'volc' && this.settings.volcApiKey;
+      
+      // 如果没有配置API密钥，抛出错误提示用户配置API密钥
+      if (!hasApiKey) {
+        const provider = this.settings.defaultProvider === 'siliconflow' ? 'SiliconFlow' : '火山引擎';
+        throw new Error(`未配置${provider} API密钥，请在设置中配置有效的API密钥`);
+      }
+      
+      // 发送API请求
+      // console.log("发送API请求获取笔记关联分析");
+      const response = await this.sendPrompt(prompt);
+      // console.log("API响应原始内容:", response);
       
       // 尝试解析JSON响应
+      let result;
       try {
-        const result = JSON.parse(cleanResponse);
+        if (typeof response === 'string') {
+          // 尝试从文本中提取JSON
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            result = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error("响应中未找到JSON格式");
+          }
+        } else if (typeof response === 'object') {
+          result = response;
+        } else {
+          throw new Error("无法识别的响应格式");
+        }
+        
+        // console.log("解析后的结果:", result);
+        
+        // 验证结果格式
+        if (!result.explanation || typeof result.relevanceScore !== 'number') {
+          throw new Error("响应格式不符合预期");
+        }
+        
+        // 确保分数在0-1范围内
+        result.relevanceScore = Math.max(0, Math.min(1, result.relevanceScore));
+        
         return {
-          explanation: result.explanation || "无法获取关联性解释",
-          relevanceScore: parseFloat(result.relevanceScore) || 0
+          explanation: result.explanation,
+          relevanceScore: result.relevanceScore
         };
       } catch (parseError) {
-        console.error('解析LLM响应失败:', parseError);
-        console.debug('清理后的响应:', cleanResponse);
-        
-        // 如果无法解析JSON，尝试从文本中提取信息
-        // 匹配多种可能的解释格式
-        const explanationPatterns = [
-          /关联性解释[：:]*\s*(.+?)(?=[\n\r]|关联程度|$)/s,
-          /分析结果[：:]*\s*(.+?)(?=[\n\r]|关联程度|$)/s,
-          /两段内容(.+?)(?=[\n\r]|关联程度|$)/s,
-          /(.+?)(?=[\n\r]|关联程度评分|相关度为|相关性为|$)/s
-        ];
-        
-        // 匹配多种可能的评分格式
-        const scorePatterns = [
-          /关联程度[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
-          /相关度[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
-          /相关性[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
-          /评分[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s
-        ];
-        
-        let explanation = "无法解析关联性解释";
-        let relevanceScore = 0;
-        
-        // 尝试所有解释模式
-        for (const pattern of explanationPatterns) {
-          const match = cleanResponse.match(pattern);
-          if (match && match[1]) {
-            explanation = match[1].trim();
-            break;
-          }
-        }
-        
-        // 尝试所有评分模式
-        for (const pattern of scorePatterns) {
-          const match = cleanResponse.match(pattern);
-          if (match && match[1]) {
-            const score = parseFloat(match[1]);
-            if (!isNaN(score) && score >= 0 && score <= 1) {
-              relevanceScore = score;
-              break;
-            }
-          }
-        }
-        
-        // 如果找到的评分不在0-1范围内，进行归一化
-        if (relevanceScore > 1) {
-          relevanceScore = relevanceScore > 10 ? relevanceScore / 100 : relevanceScore / 10;
-        }
-        
-        return { explanation, relevanceScore };
+        console.error("解析API响应时出错:", parseError);
+        console.error("响应内容:", response);
+        throw new Error(`解析响应失败: ${parseError.message}`);
       }
     } catch (error) {
-      console.error('分析笔记关联性失败:', error);
-      return {
-        explanation: "API调用失败，无法分析关联性",
-        relevanceScore: 0
-      };
+      console.error("分析笔记关联性时出错:", error);
+      throw error;
     }
+  }
+  
+  // 辅助方法：截断内容，确保不超过最大长度
+  private truncateContent(content: string, maxLength: number): string {
+    if (content.length <= maxLength) {
+      return content;
+    }
+    return content.substring(0, maxLength) + "...（内容已截断）";
   }
 }

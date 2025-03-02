@@ -24,7 +24,7 @@ export default class LinkMuse extends Plugin {
     this.llmService = new LLMService(this.settings, this.app);
     
     // 初始化笔记关联服务
-    this.noteLinkService = new NoteLinkService(this.app, this.llmService);
+    this.noteLinkService = new NoteLinkService(this.settings, this.app);
     
     // 注册视图
     this.registerView(
@@ -42,6 +42,38 @@ export default class LinkMuse extends Plugin {
     
     // 注册命令
     this.addCommands();
+  }
+  
+  // 辅助方法：获取侧边栏视图
+  getSidebarView() {
+    const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+    if (sidebarLeaves.length > 0) {
+      const view = sidebarLeaves[0].view;
+      if (view instanceof SidebarView) {
+        return view;
+      }
+    }
+    return null;
+  }
+  
+  // 辅助方法：显示侧边栏消息
+  showSidebarMessage(message: string, isError: boolean = false) {
+    const sidebarView = this.getSidebarView();
+    if (sidebarView) {
+      sidebarView.showResultMessage(message, isError);
+      return true;
+    }
+    return false;
+  }
+  
+  // 辅助方法：显示分析中状态
+  showSidebarAnalyzing() {
+    const sidebarView = this.getSidebarView();
+    if (sidebarView) {
+      sidebarView.showAnalyzing();
+      return true;
+    }
+    return false;
   }
   
   async onunload() {
@@ -80,204 +112,384 @@ export default class LinkMuse extends Plugin {
   }
   
   addCommands() {
-    // 智能双向关联命令
+    // 智能单向关联命令
     this.addCommand({
       id: 'generate-unidirectional-links',
       name: '生成智能单向关联',
       callback: () => this.generateUnidirectionalLinks(),
     });
     
-    // 组合关联分析命令
+    // 组合关联分析命令（标记为开发中）
     this.addCommand({
       id: 'analyze-note-combinations',
-      name: '分析笔记组合关联',
+      name: '分析笔记组合关联 (开发中)',
       callback: () => this.analyzeNoteCombinations(),
     });
     
-    // 灵感跃迁命令
+    // 灵感跃迁命令（标记为开发中）
     this.addCommand({
       id: 'generate-inspiration',
-      name: '生成灵感跃迁',
+      name: '生成灵感跃迁 (开发中)',
       callback: () => this.generateInspiration(),
     });
     
-    // 多媒体内容理解命令
+    // 多媒体内容理解命令（标记为开发中）
     this.addCommand({
       id: 'analyze-multimedia',
-      name: '分析多媒体内容',
+      name: '分析多媒体内容 (开发中)',
       callback: () => this.analyzeMultimedia(),
     });
   }
   
   async generateUnidirectionalLinks() {
+    // 获取当前活动的 MarkdownView
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView || !activeView.file) {
-      // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        // 在侧边栏显示错误消息，不显示弹出通知
-        sidebarView.showResultMessage('请先打开一个笔记', true);
-      } else {
-        // 如果侧边栏未打开，显示通知
+    // console.log(`开始生成单向关联，获取到活动视图：${activeView ? '成功' : '失败'}`);
+    
+    // 尝试获取活动文件
+    const activeFile = this.app.workspace.getActiveFile();
+    // console.log(`获取活动文件：${activeFile?.name || '未找到'}`);
+    
+    // 如果两种方式都无法获取文件，则显示错误信息
+    if ((!activeView || !activeView.file) && !activeFile) {
+      // console.log("未找到活动笔记，无法生成单向关联");
+      if (!this.showSidebarMessage('请先打开一个笔记', true)) {
         new Notice('请先打开一个笔记');
       }
       return;
     }
     
-    const currentFile = activeView.file;
+    // 确保有一个非空的 TFile 对象
+    const currentFile = activeView?.file || activeFile;
+    
+    if (!currentFile) {
+      // console.log("无法获取有效的文件引用");
+      if (!this.showSidebarMessage('无法获取笔记信息', true)) {
+        new Notice('无法获取笔记信息');
+      }
+      return;
+    }
+    
+    // console.log(`开始为笔记 ${currentFile.name} 生成智能单向关联`);
     
     try {
-      // 获取侧边栏视图
-      let sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      // 如果侧边栏打开，显示分析中状态
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showAnalyzing();
-      }
+      // 显示分析中状态
+      this.showSidebarAnalyzing();
       
       // 创建持续显示的加载提示框
-      const loadingNotice = new Notice('正在分析笔记关联...', 0);
+      const loadingNotice = new Notice('正在分析潜在链接...', 0);
       
-      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(
-        currentFile,
-        this.settings.maxNotesToAnalyze
-      );
+      // 读取当前笔记内容
+      // console.log("读取当前笔记内容");
+      const noteContent = await this.app.vault.read(currentFile);
+      // console.log(`笔记内容长度: ${noteContent.length} 字符`);
+      
+      // 调用笔记链接服务分析潜在链接
+      console.log("开始分析潜在链接");
+      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, noteContent);
       
       // 关闭加载提示框
       loadingNotice.hide();
-    
-      if (potentialLinks.length === 0) {
-        // 获取侧边栏视图（重新获取是因为可能在操作过程中状态发生变化）
-        sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-        sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-        
-        if (sidebarView && sidebarView instanceof SidebarView) {
-          // 在侧边栏显示未找到关联的消息，不显示弹出通知
-          sidebarView.showResultMessage('未找到潜在关联的笔记', true);
-        } else {
-          // 如果侧边栏未打开，显示通知
-          new Notice('未找到潜在关联的笔记');
+      
+      if (!potentialLinks || potentialLinks.length === 0) {
+        // console.log("未找到潜在关联");
+        if (!this.showSidebarMessage('未找到潜在关联', true)) {
+          new Notice('未找到潜在关联');
         }
         return;
       }
     
       // 构建输出内容
       let output = '## 潜在的笔记关联\n\n';
-      potentialLinks.forEach(link => {
+      potentialLinks.forEach((link, index) => {
+        // console.log(`处理潜在链接 ${index+1}/${potentialLinks.length}: ${link.noteName}, 分数: ${link.relevanceScore}`);
         output += `当前笔记和[[${link.noteName}]]潜在的关联：${link.content}，关联程度：${link.relevanceScore}\n\n`;
       });
-    
-      // 将结果插入到当前笔记末尾
-      const editor = activeView.editor;
-      const currentContent = editor.getValue();
-      editor.setValue(currentContent + '\n\n' + output);
-    
-      // 获取侧边栏视图（重新获取是因为可能在操作过程中状态发生变化）
-      sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
       
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        // 在侧边栏显示成功消息，不显示弹出通知
-        sidebarView.showResultMessage(`已找到${potentialLinks.length}个潜在关联`);
+      // console.log(`输出内容长度: ${output.length} 字符`);
+    
+      // 确保有可用的编辑器来更新笔记内容
+      if (activeView && activeView.editor) {
+        // console.log("尝试插入内容到活动笔记");
+        const editor = activeView.editor;
+        const currentContent = editor.getValue();
+        // console.log("当前笔记内容长度:", currentContent.length);
+        
+        // 添加新内容
+        const newContent = currentContent + '\n\n' + output;
+        // console.log("新笔记内容长度:", newContent.length);
+        // console.log(`内容增加了 ${newContent.length - currentContent.length} 字符`);
+        
+        // 使用编辑器更新内容
+        // console.log("开始更新编辑器内容");
+        editor.setValue(newContent);
+        // console.log("通过编辑器更新笔记内容完成");
+        
+        // 保存文件变更
+        // console.log("尝试保存文件变更到磁盘");
+        try {
+          await this.app.vault.modify(currentFile, newContent);
+          // console.log("文件变更已保存到磁盘");
+        } catch (saveError) {
+          console.error("保存文件变更失败:", saveError);
+          console.error("错误详情:", saveError.message);
+        }
       } else {
-        // 如果侧边栏未打开，显示通知
-        new Notice(`已找到${potentialLinks.length}个潜在关联`);
+        // console.log("没有活动的编辑器，尝试直接修改文件");
+        // 如果没有活动的编辑器视图，尝试直接修改文件
+        try {
+          const fileContent = await this.app.vault.read(currentFile);
+          // console.log("读取文件内容成功，长度:", fileContent.length);
+          
+          const newContent = fileContent + '\n\n' + output;
+          // console.log("准备写入新内容，长度:", newContent.length);
+          // console.log(`内容增加了 ${newContent.length - fileContent.length} 字符`);
+          
+          await this.app.vault.modify(currentFile, newContent);
+          // console.log("文件直接修改成功");
+        } catch (readError) {
+          console.error("读取或修改文件失败:", readError);
+          console.error("错误详情:", readError.message);
+          if (!this.showSidebarMessage('无法更新笔记内容', true)) {
+            new Notice('无法更新笔记内容，但分析结果已生成');
+          }
+        }
+      }
+    
+      // 显示成功消息
+      const successMessage = `已找到${potentialLinks.length}个潜在关联`;
+      // console.log(successMessage);
+      
+      // 重新获取侧边栏视图以确保状态最新
+      let sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      if (sidebarView instanceof SidebarView) {
+        // console.log("更新侧边栏消息");
+        sidebarView.showResultMessage(successMessage);
+      } else {
+        // console.log("无法获取侧边栏视图，使用通知");
+        new Notice(successMessage);
       }
     } catch (error) {
       console.error('生成单向关联时出错:', error);
+      console.error('错误详情:', error.message);
       
-      // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        // 在侧边栏显示错误消息，不显示弹出通知
-        sidebarView.showResultMessage('生成关联时出错', true);
-      } else {
-        // 如果侧边栏未打开，显示通知
+      // 显示错误消息
+      if (!this.showSidebarMessage('生成关联时出错', true)) {
         new Notice('生成关联时出错，请查看控制台获取详细信息');
       }
     }
   }
   
-  async analyzeNoteCombinations() {
-    new Notice('正在分析笔记组合关联...');
-    // 实际功能将在后续实现
-  }
-  
   async generateInspiration() {
+    // 显示功能开发中提示
+    console.log("灵感跃迁功能已冻结，显示开发中提示");
+    
+    if (!this.showSidebarMessage('灵感跃迁功能正在开发中，敬请期待')) {
+      new Notice('灵感跃迁功能正在开发中，敬请期待');
+    }
+    
+    return;
+    
+    /* 以下代码已冻结
+    // 获取当前活动的 MarkdownView
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView || !activeView.file) {
-      // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        // 在侧边栏显示错误消息，不显示弹出通知
-        sidebarView.showResultMessage('请先打开一个笔记', true);
-      } else {
-        // 如果侧边栏未打开，显示通知
+    console.log(`开始生成灵感跃迁，获取到活动视图：${activeView ? '成功' : '失败'}`);
+    
+    // 尝试获取活动文件
+    const activeFile = this.app.workspace.getActiveFile();
+    console.log(`获取活动文件：${activeFile?.name || '未找到'}`);
+    
+    // 如果两种方式都无法获取文件，则显示错误信息
+    if ((!activeView || !activeView.file) && !activeFile) {
+      console.log("未找到活动笔记，无法生成灵感跃迁");
+      if (!this.showSidebarMessage('请先打开一个笔记', true)) {
         new Notice('请先打开一个笔记');
       }
       return;
     }
     
-    try {
-      // 获取侧边栏视图
-      let sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      // 如果侧边栏打开，显示分析中状态
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showAnalyzing();
+    // 确保有一个非空的 TFile 对象
+    const currentFile = activeView?.file || activeFile;
+    
+    if (!currentFile) {
+      console.log("无法获取有效的文件引用");
+      if (!this.showSidebarMessage('无法获取笔记信息', true)) {
+        new Notice('无法获取笔记信息');
       }
+      return;
+    }
+    
+    console.log(`开始为笔记 ${currentFile.name} 生成灵感跃迁`);
+    
+    try {
+      // 显示分析中状态
+      this.showSidebarAnalyzing();
       
       // 创建持续显示的加载提示框
       const loadingNotice = new Notice('正在生成灵感跃迁...', 0);
       
-      // 调用灵感生成逻辑
-      // TODO: 实现灵感跃迁的具体功能
+      // 读取当前笔记内容
+      console.log("读取当前笔记内容");
+      const noteContent = await this.app.vault.read(currentFile);
+      console.log(`笔记内容长度: ${noteContent.length} 字符`);
       
-      // 这里是模拟调用，实际项目中应替换为真实的API调用
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 调用LLM服务生成灵感
+      console.log(`开始生成灵感，数量: ${this.settings.inspirationCount}`);
       
-      // 关闭加载提示框
-      loadingNotice.hide();
+      // 使用LLMService生成灵感内容
+      const llmService = new LLMService(this.settings, this.app);
       
-      // 获取侧边栏视图（重新获取是因为可能在操作过程中状态发生变化）
-      sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        // 在侧边栏显示成功消息，不显示弹出通知
-        sidebarView.showResultMessage('灵感跃迁功能开发中...');
-      } else {
-        // 如果侧边栏未打开，显示通知
-        new Notice('灵感跃迁生成完成');
+      try {
+        // 生成灵感内容
+        const inspirationContent = await llmService.generateInspiration([currentFile.basename, noteContent]);
+        console.log("LLM服务返回的灵感内容:", inspirationContent);
+        
+        // 关闭加载提示框
+        loadingNotice.hide();
+        
+        // 构建输出内容
+        let output = '## 灵感跃迁\n\n';
+        output += inspirationContent;
+        
+        console.log("生成的输出内容长度:", output.length);
+        
+        // 确保有可用的编辑器来更新笔记内容
+        if (activeView && activeView.editor) {
+          console.log("尝试插入内容到活动笔记");
+          const editor = activeView.editor;
+          const currentContent = editor.getValue();
+          console.log("当前笔记内容长度:", currentContent.length);
+          
+          // 添加新内容
+          const newContent = currentContent + '\n\n' + output;
+          console.log("新笔记内容长度:", newContent.length);
+          console.log(`内容增加了 ${newContent.length - currentContent.length} 字符`);
+          
+          // 使用编辑器更新内容
+          console.log("开始更新编辑器内容");
+          editor.setValue(newContent);
+          console.log("通过编辑器更新笔记内容完成");
+          
+          // 保存文件变更
+          console.log("尝试保存文件变更到磁盘");
+          try {
+            await this.app.vault.modify(currentFile, newContent);
+            console.log("文件变更已保存到磁盘");
+          } catch (saveError) {
+            console.error("保存文件变更失败:", saveError);
+            console.error("错误详情:", saveError.message);
+          }
+        } else {
+          console.log("没有活动的编辑器，尝试直接修改文件");
+          // 如果没有活动的编辑器视图，尝试直接修改文件
+          try {
+            const fileContent = await this.app.vault.read(currentFile);
+            console.log("读取文件内容成功，长度:", fileContent.length);
+            
+            const newContent = fileContent + '\n\n' + output;
+            console.log("准备写入新内容，长度:", newContent.length);
+            console.log(`内容增加了 ${newContent.length - fileContent.length} 字符`);
+            
+            await this.app.vault.modify(currentFile, newContent);
+            console.log("文件直接修改成功");
+          } catch (readError) {
+            console.error("读取或修改文件失败:", readError);
+            console.error("错误详情:", readError.message);
+            if (!this.showSidebarMessage('无法更新笔记内容', true)) {
+              new Notice('无法更新笔记内容，但灵感已生成');
+            }
+          }
+        }
+        
+        // 显示成功消息
+        const successMessage = `已生成灵感内容`;
+        console.log(successMessage);
+        
+        // 重新获取侧边栏视图以确保状态最新
+        let sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
+        let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+        if (sidebarView instanceof SidebarView) {
+          console.log("更新侧边栏消息");
+          sidebarView.showResultMessage(successMessage);
+        } else {
+          console.log("无法获取侧边栏视图，使用通知");
+          new Notice(successMessage);
+        }
+      } catch (llmError) {
+        console.error('调用LLM服务时出错:', llmError);
+        console.error('错误详情:', llmError.message);
+        
+        // 关闭加载提示框
+        loadingNotice.hide();
+        
+        // 显示错误消息
+        if (!this.showSidebarMessage(`生成灵感时出错: ${llmError.message}`, true)) {
+          new Notice(`生成灵感时出错: ${llmError.message}`);
+        }
       }
     } catch (error) {
-      console.error('生成灵感跃迁时出错:', error);
+      console.error('生成灵感时出错:', error);
+      console.error('错误详情:', error.message);
       
-      // 获取侧边栏视图
-      const sidebarLeaves = this.app.workspace.getLeavesOfType('linkmuse-sidebar');
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        // 在侧边栏显示错误消息，不显示弹出通知
-        sidebarView.showResultMessage('生成灵感跃迁时出错', true);
-      } else {
-        // 如果侧边栏未打开，显示通知
-        new Notice('生成灵感跃迁时出错，请查看控制台获取详细信息');
+      // 显示错误消息
+      if (!this.showSidebarMessage('生成灵感时出错', true)) {
+        new Notice('生成灵感时出错，请查看控制台获取详细信息');
       }
     }
+    */
+  }
+  
+  async analyzeNoteCombinations() {
+    // 显示功能开发中提示
+    console.log("笔记组合关联分析功能已冻结，显示开发中提示");
+    
+    if (!this.showSidebarMessage('笔记组合关联分析功能正在开发中，敬请期待')) {
+      new Notice('笔记组合关联分析功能正在开发中，敬请期待');
+    }
+    
+    return;
+    
+    /* 以下代码已冻结
+    // 获取当前活动的笔记
+    const activeFile = this.app.workspace.getActiveFile();
+    
+    if (!activeFile) {
+      if (!this.showSidebarMessage('请先打开一个笔记', true)) {
+        new Notice('请先打开一个笔记');
+      }
+      return;
+    }
+    
+    // 显示分析中状态
+    this.showSidebarAnalyzing();
+    
+    // 显示功能开发中消息
+    if (!this.showSidebarMessage('笔记组合关联分析功能正在开发中...', false)) {
+      new Notice('笔记组合关联分析功能正在开发中...');
+    }
+    
+    // TODO: 实现笔记组合关联分析功能
+    // 1. 允许用户选择多个笔记进行组合分析
+    // 2. 分析笔记之间的关联性
+    // 3. 生成关联分析报告
+    */
   }
   
   async analyzeMultimedia() {
+    // 显示功能开发中提示
+    console.log("多媒体内容分析功能已冻结，显示开发中提示");
+    
+    if (!this.showSidebarMessage('多媒体内容分析功能正在开发中，敬请期待')) {
+      new Notice('多媒体内容分析功能正在开发中，敬请期待');
+    }
+    
+    return;
+    
+    /* 以下代码已冻结
     new Notice('正在分析多媒体内容...');
     // 实际功能将在后续实现
+    */
   }
 }
 
@@ -460,6 +672,20 @@ class LinkMuseSettingTab extends PluginSettingTab {
       );
       
     new Setting(containerEl)
+      .setName('生成链接数量')
+      .setDesc('设置智能关联生成的最大链接数量')
+      .addSlider((slider) =>
+        slider
+          .setLimits(1, 10, 1)
+          .setValue(this.plugin.settings.maxLinksToGenerate)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.maxLinksToGenerate = value;
+            await this.plugin.saveSettings();
+          })
+      );
+      
+    new Setting(containerEl)
       .setName('保存思维链')
       .setDesc('是否保存LLM分析过程的思维链')
       .addToggle((toggle) =>
@@ -481,6 +707,18 @@ class LinkMuseSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings.inspirationCount = value;
+            await this.plugin.saveSettings();
+          })
+      );
+      
+    new Setting(containerEl)
+      .setName('使用完整笔记内容')
+      .setDesc('是否使用完整笔记内容进行分析（开启可能会导致API请求消耗更多Token）')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.useFullContent)
+          .onChange(async (value) => {
+            this.plugin.settings.useFullContent = value;
             await this.plugin.saveSettings();
           })
       );

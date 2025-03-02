@@ -6,8 +6,10 @@
   "defaultModel": "gpt-4",
   "defaultProvider": "siliconflow",
   "maxNotesToAnalyze": 5,
+  "maxLinksToGenerate": 5,
   "saveChainOfThought": true,
   "inspirationCount": 1,
+  "useFullContent": false,
   "debugMode": false,
   "customPromptTemplates": {
     "bidirectionalLinks": "分析以下笔记内容，找出它们之间可能存在的关联：\n{{notes}}",

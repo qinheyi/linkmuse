@@ -1285,24 +1285,54 @@ var DEFAULT_SETTINGS = {
   siliconflowApiKey: "",
   volcApiKey: "",
   defaultModel: "gpt-4",
-  defaultProvider: "openai",
+  defaultProvider: "siliconflow",
   maxNotesToAnalyze: 20,
+  maxLinksToGenerate: 5,
   saveChainOfThought: true,
-  inspirationCount: 3,
+  inspirationCount: 5,
+  useFullContent: false,
   debugMode: false,
   customPromptTemplates: {
     bidirectionalLinks: "\u5206\u6790\u4EE5\u4E0B\u7B14\u8BB0\u5185\u5BB9\uFF0C\u627E\u51FA\u5B83\u4EEC\u4E4B\u95F4\u53EF\u80FD\u5B58\u5728\u7684\u5173\u8054\uFF1A\n{{notes}}",
-    inspiration: "\u57FA\u4E8E\u4EE5\u4E0B\u7B14\u8BB0\u5185\u5BB9\uFF0C\u751F\u6210{{count}}\u4E2A\u521B\u65B0\u7684\u7075\u611F\u548C\u60F3\u6CD5\uFF1A\n{{notes}}",
-    multimedia: "\u5206\u6790\u4EE5\u4E0B{{type}}\u5185\u5BB9\uFF0C\u63D0\u4F9B\u8BE6\u7EC6\u7684\u7406\u89E3\u548C\u603B\u7ED3\uFF1A\n{{content}}"
+    inspiration: `\u57FA\u4E8E\u4EE5\u4E0B\u7B14\u8BB0\u5185\u5BB9\uFF0C\u8BF7\u751F\u6210\u6709\u521B\u610F\u7684\u7075\u611F\u8DC3\u8FC1\u5185\u5BB9\uFF1A
+
+\u7B14\u8BB0\u6807\u9898: {{title1}}
+\u7B14\u8BB0\u5185\u5BB9:
+{{content1}}
+
+\u8BF7\u4ECE\u4EE5\u4E0B\u591A\u4E2A\u89D2\u5EA6\u8FDB\u884C\u7075\u611F\u8DC3\u8FC1\uFF0C\u751F\u62105\u4E2A\u6709\u542F\u53D1\u6027\u7684\u60F3\u6CD5\uFF1A
+1. \u6838\u5FC3\u6982\u5FF5\u5EF6\u4F38\uFF1A\u4ECE\u7B14\u8BB0\u7684\u6838\u5FC3\u6982\u5FF5\u51FA\u53D1\uFF0C\u5411\u76F8\u5173\u9886\u57DF\u5EF6\u4F38
+2. \u8DE8\u5B66\u79D1\u8054\u7CFB\uFF1A\u5C06\u7B14\u8BB0\u5185\u5BB9\u4E0E\u5176\u4ED6\u9886\u57DF\u77E5\u8BC6\u5EFA\u7ACB\u8054\u7CFB
+3. \u5B9E\u8DF5\u5E94\u7528\uFF1A\u601D\u8003\u5982\u4F55\u5C06\u7B14\u8BB0\u4E2D\u7684\u6982\u5FF5\u5E94\u7528\u5230\u5B9E\u9645\u95EE\u9898\u4E2D
+4. \u53CD\u5411\u601D\u8003\uFF1A\u4ECE\u76F8\u53CD\u7684\u89D2\u5EA6\u5BA1\u89C6\u7B14\u8BB0\u5185\u5BB9
+5. \u672A\u6765\u53D1\u5C55\uFF1A\u9884\u6D4B\u76F8\u5173\u6982\u5FF5\u6216\u9886\u57DF\u7684\u672A\u6765\u53D1\u5C55\u8D8B\u52BF
+
+\u6BCF\u4E2A\u7075\u611F\u8BF7\u7528\u4E00\u4E2A\u6BB5\u843D\u63CF\u8FF0\uFF0C\u5305\u542B\u6807\u9898\u548C\u7B80\u8981\u8BF4\u660E\u3002\u5C3D\u91CF\u63D0\u4F9B\u5177\u4F53\u3001\u6709\u542F\u53D1\u6027\u3001\u53EF\u884C\u7684\u60F3\u6CD5\uFF0C\u907F\u514D\u8FC7\u4E8E\u62BD\u8C61\u6216\u7B3C\u7EDF\u7684\u8868\u8FF0\u3002`,
+    multimedia: "\u5206\u6790\u4EE5\u4E0B{{type}}\u5185\u5BB9\uFF0C\u63D0\u4F9B\u8BE6\u7EC6\u7684\u7406\u89E3\u548C\u603B\u7ED3\uFF1A\n{{content}}",
+    noteRelevance: `\u8BF7\u5206\u6790\u4EE5\u4E0B\u4E24\u4E2A\u7B14\u8BB0\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF1A
+
+\u7B14\u8BB01\u6807\u9898\uFF1A{{title1}}
+\u7B14\u8BB01\u5185\u5BB9\uFF1A
+{{content1}}
+
+\u7B14\u8BB02\u6807\u9898\uFF1A{{title2}}
+\u7B14\u8BB02\u5185\u5BB9\uFF1A
+{{content2}}
+
+\u8BF7\u63D0\u4F9B\uFF1A
+1. \u5173\u8054\u6027\u89E3\u91CA\uFF08\u9996\u5148\u5206\u6790\u7B14\u8BB0\u6807\u9898\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF0C\u8FD9\u662F\u6700\u4E3B\u8981\u7684\u5224\u65AD\u4F9D\u636E\uFF1B\u7136\u540E\u53C2\u8003\u7B14\u8BB0\u5185\u5BB9\u4F5C\u4E3A\u8F85\u52A9\uFF0C\u8FDB\u4E00\u6B65\u7406\u89E3\u6807\u9898\u53EF\u80FD\u8868\u8FBE\u7684\u542B\u4E49\u3002\u5982\u679C\u6807\u9898\u4E4B\u95F4\u6CA1\u6709\u660E\u663E\u5173\u8054\uFF0C\u5219\u5206\u6790\u7B14\u8BB0\u5185\u5BB9\u53EF\u80FD\u60F3\u8981\u9610\u8FF0\u7684\u6838\u5FC3\u610F\u4E49\uFF0C\u518D\u8FDB\u884C\u5173\u8054\u5206\u6790\uFF09
+2. \u5173\u8054\u7A0B\u5EA6\u8BC4\u5206\uFF080-1\u4E4B\u95F4\u7684\u6570\u503C\uFF0C\u5176\u4E2D0\u8868\u793A\u5B8C\u5168\u65E0\u5173\uFF0C1\u8868\u793A\u9AD8\u5EA6\u76F8\u5173\uFF09\u3002
+
+\u8BF7\u4EE5JSON\u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u683C\u5F0F\u5982\u4E0B\uFF1A
+{
+  "explanation": "\u5173\u8054\u6027\u89E3\u91CA",
+  "relevanceScore": 0.5
+}
+
+\u6CE8\u610F\uFF1A\u8BF7\u76F4\u63A5\u8FD4\u56DEJSON\u683C\u5F0F\u7684\u7ED3\u679C\uFF0C\u4E0D\u8981\u5305\u542BMarkdown\u4EE3\u7801\u5757\u6807\u8BB0\u3002`
   },
   siliconflowModel: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
   volcModel: "deepseek-r1-distill-qwen-32b-250120"
-};
-var LLM_PROVIDERS = {
-  openai: "OpenAI",
-  claude: "Claude",
-  siliconflow: "\u7845\u57FA\u6D41\u52A8",
-  volc: "\u706B\u5C71\u5F15\u64CE"
 };
 
 // src/ui/sidebar.ts
@@ -1319,14 +1349,13 @@ var SidebarView = class extends import_obsidian.ItemView {
     return "LinkMuse";
   }
   async onOpen() {
-    const container = this.containerEl.children[1];
-    container.empty();
-    const titleContainer = container.createDiv({ cls: "linkmuse-sidebar-title" });
-    titleContainer.createEl("h2", { text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
-    const mainSection = container.createDiv({ cls: "linkmuse-main-section" });
-    const noteSelectionSection = mainSection.createDiv({ cls: "linkmuse-note-selection" });
-    noteSelectionSection.createEl("h3", { text: "\u7B14\u8BB0\u9009\u62E9" });
-    this.noteInfoContainer = noteSelectionSection.createDiv({ cls: "linkmuse-note-info" });
+    const { contentEl } = this;
+    contentEl.empty();
+    const titleEl = contentEl.createEl("h2", { text: "LinkMuse \u7075\u611F\u8DC3\u8FC1" });
+    this.createNoteSelectionArea(contentEl);
+    this.createLLMProviderSelection(contentEl);
+    this.createActionButtons(contentEl);
+    this.createResultsArea(contentEl);
     this.updateCurrentNoteInfo();
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => {
       this.updateCurrentNoteInfo();
@@ -1337,167 +1366,70 @@ var SidebarView = class extends import_obsidian.ItemView {
     this.registerEvent(this.app.workspace.on("layout-change", () => {
       this.updateCurrentNoteInfo();
     }));
-    this.refreshInterval = window.setInterval(() => {
-      this.updateCurrentNoteInfo();
-    }, 3e3);
-    const llmProviderSection = mainSection.createDiv({ cls: "linkmuse-llm-provider" });
-    llmProviderSection.createEl("h4", { text: "LLM\u63D0\u4F9B\u5546" });
-    const providerButtonContainer = llmProviderSection.createDiv({ cls: "linkmuse-provider-buttons" });
-    const style = document.createElement("style");
-    style.textContent = `
-      .linkmuse-sidebar-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-      .linkmuse-logo-icon {
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .linkmuse-logo-icon svg {
-        width: 100%;
-        height: 100%;
-        fill: var(--text-normal);
-      }
-      .linkmuse-provider-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-      .linkmuse-provider-button {
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-      }
-      .linkmuse-provider-button.is-active {
-        background-color: var(--interactive-accent);
-        color: var(--text-on-accent);
-      }
-      .linkmuse-note-info {
-        margin: 8px 0;
-        padding: 8px;
-        border-radius: 6px;
-        background-color: var(--background-secondary);
-      }
-      .linkmuse-active-note {
-        display: flex;
-        flex-direction: column;
-      }
-      .linkmuse-note-name {
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .linkmuse-note-path {
-        font-size: 0.8em;
-        color: var(--text-muted);
-        margin-top: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .linkmuse-empty-state {
-        color: var(--text-muted);
-        font-style: italic;
-      }
-      .linkmuse-results-container {
-        margin-top: 8px;
-        padding: 8px;
-        border-radius: 6px;
-        background-color: var(--background-secondary);
-        max-height: 300px;
-        overflow-y: auto;
-      }
-      .linkmuse-loading {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .linkmuse-loading-spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid var(--text-muted);
-        border-top-color: var(--interactive-accent);
-        border-radius: 50%;
-        animation: linkmuse-spin 1s linear infinite;
-      }
-      .linkmuse-error {
-        color: var(--text-error);
-      }
-      @keyframes linkmuse-spin {
-        to { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-    Object.entries(LLM_PROVIDERS).forEach(([key, name]) => {
-      const providerButton = new import_obsidian.ButtonComponent(providerButtonContainer).setButtonText(name).setClass("linkmuse-provider-button").onClick(async () => {
-        providerButtonContainer.querySelectorAll(".linkmuse-provider-button").forEach((btn) => {
-          btn.removeClass("is-active");
-        });
-        providerButton.buttonEl.addClass("is-active");
-        this.plugin.settings.defaultProvider = key;
-        await this.plugin.saveSettings();
-      });
-      if (this.plugin.settings.defaultProvider === key) {
-        providerButton.buttonEl.addClass("is-active");
-      }
-    });
-    const actionSection = mainSection.createDiv({ cls: "linkmuse-actions" });
-    const linkButton = actionSection.createEl("button", {
-      text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054",
-      cls: "mod-cta"
-    });
-    linkButton.addEventListener("click", () => {
-      this.plugin.generateUnidirectionalLinks();
-    });
-    const inspirationButton = actionSection.createEl("button", {
-      text: "\u7075\u611F\u8DC3\u8FC1",
-      cls: "mod-cta"
-    });
-    inspirationButton.addEventListener("click", () => {
-      this.plugin.generateInspiration();
-    });
-    const resultsSection = container.createDiv({ cls: "linkmuse-results" });
-    resultsSection.createEl("h3", { text: "\u7ED3\u679C" });
-    this.resultsContainer = resultsSection.createDiv({ cls: "linkmuse-results-container" });
   }
   updateCurrentNoteInfo() {
+    if (!this.noteInfoContainer) {
+      console.log("noteInfoContainer\u4E0D\u5B58\u5728");
+      return;
+    }
     this.noteInfoContainer.empty();
+    console.log("\u5C1D\u8BD5\u66F4\u65B0\u7B14\u8BB0\u4FE1\u606F");
     let activeView = this.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
+    console.log("\u901A\u8FC7getActiveViewOfType\u83B7\u53D6:", activeView);
+    const activeLeaf = this.app.workspace.activeLeaf;
+    console.log("\u5F53\u524D\u6D3B\u52A8\u53F6\u5B50:", activeLeaf);
+    const activeFile = this.app.workspace.getActiveFile();
+    console.log("\u5F53\u524D\u6D3B\u52A8\u6587\u4EF6:", activeFile ? activeFile.name : "\u65E0");
+    if (activeLeaf && activeLeaf.view instanceof import_obsidian.MarkdownView) {
+      activeView = activeLeaf.view;
+      console.log("\u4ECE\u6D3B\u52A8\u53F6\u5B50\u83B7\u53D6\u89C6\u56FE:", activeView);
+    }
     if (!activeView || !activeView.file) {
-      const leaves = this.app.workspace.getLeavesOfType("markdown");
-      for (const leaf of leaves) {
-        const view = leaf.view;
-        if (view instanceof import_obsidian.MarkdownView && view.file) {
-          activeView = view;
+      console.log("\u672A\u627E\u5230\u6D3B\u52A8\u7684Markdown\u89C6\u56FE\uFF0C\u5C1D\u8BD5\u67E5\u627E\u6240\u6709\u53F6\u5B50");
+      const allLeaves = this.app.workspace.getLeavesOfType("markdown");
+      console.log("\u6240\u6709markdown\u53F6\u5B50:", allLeaves.length);
+      for (const leaf of allLeaves) {
+        if (leaf.view instanceof import_obsidian.MarkdownView && leaf.view.file) {
+          activeView = leaf.view;
+          console.log("\u4ECE\u6240\u6709\u53F6\u5B50\u4E2D\u627E\u5230\u89C6\u56FE:", activeView);
           break;
         }
       }
     }
-    if (activeView && activeView.file) {
+    let noteFile = (activeView == null ? void 0 : activeView.file) || activeFile;
+    if (noteFile) {
+      console.log("\u627E\u5230\u6D3B\u52A8\u7B14\u8BB0:", noteFile.name, noteFile.path);
       const noteInfo = this.noteInfoContainer.createDiv({ cls: "linkmuse-active-note" });
       noteInfo.createDiv({
         cls: "linkmuse-note-name",
-        text: activeView.file.name
+        text: noteFile.name
       });
       noteInfo.createDiv({
         cls: "linkmuse-note-path",
-        text: activeView.file.path
+        text: noteFile.path
       });
+      if (this.resultsContainer && this.resultsContainer.textContent && this.resultsContainer.textContent.includes("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0")) {
+        this.resultsContainer.empty();
+      }
     } else {
+      console.log("\u672A\u627E\u5230\u6D3B\u52A8\u7B14\u8BB0");
       this.noteInfoContainer.createDiv({
         cls: "linkmuse-empty-state",
         text: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0"
       });
+      const openFiles = this.app.vault.getMarkdownFiles();
+      console.log("\u5E93\u4E2D\u7684\u6240\u6709Markdown\u6587\u4EF6:", openFiles.length);
+      if (openFiles.length > 0) {
+        console.log("\u7B2C\u4E00\u4E2AMarkdown\u6587\u4EF6:", openFiles[0].name);
+      }
     }
   }
   showResultMessage(message, isError = false) {
+    if (!this.resultsContainer) {
+      console.error("resultsContainer\u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u663E\u793A\u6D88\u606F:", message);
+      return;
+    }
+    console.log(`\u663E\u793A${isError ? "\u9519\u8BEF" : ""}\u6D88\u606F:`, message);
     this.resultsContainer.empty();
     const messageEl = this.resultsContainer.createDiv({
       cls: isError ? "linkmuse-error" : ""
@@ -1505,6 +1437,11 @@ var SidebarView = class extends import_obsidian.ItemView {
     messageEl.setText(message);
   }
   showAnalyzing() {
+    if (!this.resultsContainer) {
+      console.error("resultsContainer\u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u663E\u793A\u5206\u6790\u72B6\u6001");
+      return;
+    }
+    console.log("\u663E\u793A\u5206\u6790\u4E2D\u72B6\u6001");
     this.resultsContainer.empty();
     const loadingEl = this.resultsContainer.createDiv({ cls: "linkmuse-loading" });
     loadingEl.createDiv({ cls: "linkmuse-loading-spinner" });
@@ -1514,6 +1451,88 @@ var SidebarView = class extends import_obsidian.ItemView {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
+  }
+  createLLMProviderSelection(containerEl) {
+    const llmProviderSection = containerEl.createDiv({ cls: "linkmuse-llm-provider" });
+    llmProviderSection.createEl("h4", { text: "LLM\u63D0\u4F9B\u5546" });
+    const providerButtonContainer = llmProviderSection.createDiv({ cls: "linkmuse-provider-buttons" });
+    const reducedProviders = {
+      "siliconflow": "SiliconFlow",
+      "volc": "\u706B\u5C71\u5F15\u64CE"
+    };
+    Object.entries(reducedProviders).forEach(([key, name]) => {
+      const button = providerButtonContainer.createEl("button", {
+        text: name,
+        cls: "linkmuse-provider-button"
+      });
+      if (this.plugin.settings.defaultProvider === key) {
+        button.addClass("is-active");
+      }
+      button.addEventListener("click", async () => {
+        providerButtonContainer.querySelectorAll(".linkmuse-provider-button").forEach((btn) => {
+          btn.removeClass("is-active");
+        });
+        button.addClass("is-active");
+        this.plugin.settings.defaultProvider = key;
+        await this.plugin.saveSettings();
+        console.log(`\u5DF2\u5207\u6362LLM\u63D0\u4F9B\u5546\u4E3A: ${name}`);
+      });
+    });
+  }
+  createNoteSelectionArea(containerEl) {
+    const noteSelectionSection = containerEl.createDiv({ cls: "linkmuse-note-selection" });
+    noteSelectionSection.createEl("h3", { text: "\u7B14\u8BB0\u9009\u62E9" });
+    this.noteInfoContainer = noteSelectionSection.createDiv({ cls: "linkmuse-note-info" });
+    const multiNoteSection = noteSelectionSection.createDiv({ cls: "linkmuse-multi-note-selection" });
+    multiNoteSection.createEl("h4", { text: "\u9009\u62E9\u5176\u4ED6\u7B14\u8BB0\u8FDB\u884C\u7EC4\u5408\u5206\u6790" });
+    const noteListContainer = multiNoteSection.createDiv({ cls: "linkmuse-note-list" });
+    noteListContainer.createEl("p", {
+      text: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0\uFF0C\u7136\u540E\u5728\u8FD9\u91CC\u9009\u62E9\u5176\u4ED6\u7B14\u8BB0\u8FDB\u884C\u7EC4\u5408\u5206\u6790",
+      cls: "linkmuse-note-list-placeholder"
+    });
+    const selectNotesButton = multiNoteSection.createEl("button", {
+      text: "\u9009\u62E9\u8981\u5206\u6790\u7684\u7B14\u8BB0",
+      cls: "mod-cta linkmuse-select-notes-button"
+    });
+    selectNotesButton.addEventListener("click", () => {
+      this.showResultMessage("\u7B14\u8BB0\u9009\u62E9\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u76EE\u524D\u53EA\u652F\u6301\u5206\u6790\u5F53\u524D\u6253\u5F00\u7684\u7B14\u8BB0");
+    });
+  }
+  createActionButtons(containerEl) {
+    const actionSection = containerEl.createDiv({ cls: "linkmuse-actions" });
+    const linkButton = actionSection.createEl("button", {
+      text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054",
+      cls: "mod-cta"
+    });
+    linkButton.addEventListener("click", () => {
+      this.plugin.generateUnidirectionalLinks();
+    });
+    const inspirationButton = actionSection.createEl("button", {
+      text: "\u7075\u611F\u8DC3\u8FC1 (\u5F00\u53D1\u4E2D)",
+      cls: "mod-cta"
+    });
+    inspirationButton.addEventListener("click", () => {
+      this.showResultMessage("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85");
+    });
+    const combinationButton = actionSection.createEl("button", {
+      text: "\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054 (\u5F00\u53D1\u4E2D)",
+      cls: "mod-cta"
+    });
+    combinationButton.addEventListener("click", () => {
+      this.showResultMessage("\u7B14\u8BB0\u7EC4\u5408\u5173\u8054\u5206\u6790\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85");
+    });
+    const mediaButton = actionSection.createEl("button", {
+      text: "\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9 (\u5F00\u53D1\u4E2D)",
+      cls: "mod-cta"
+    });
+    mediaButton.addEventListener("click", () => {
+      this.showResultMessage("\u591A\u5A92\u4F53\u5185\u5BB9\u5206\u6790\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85");
+    });
+  }
+  createResultsArea(containerEl) {
+    const resultsSection = containerEl.createDiv({ cls: "linkmuse-results" });
+    resultsSection.createEl("h3", { text: "\u7ED3\u679C" });
+    this.resultsContainer = resultsSection.createDiv({ cls: "linkmuse-results-container" });
   }
 };
 
@@ -1623,9 +1642,10 @@ var LLMService = class {
     const prompt = this.settings.customPromptTemplates.bidirectionalLinks.replace("{{notes}}", notes.join("\n---\n"));
     return await this.sendRequest(prompt);
   }
-  async generateInspiration(notes) {
-    const prompt = this.settings.customPromptTemplates.inspiration.replace("{{notes}}", notes.join("\n---\n")).replace("{{count}}", this.settings.inspirationCount.toString());
-    return await this.sendRequest(prompt);
+  async generateInspiration(noteData) {
+    const [noteTitle, noteContent] = noteData;
+    const prompt = this.settings.customPromptTemplates.inspiration.replace("{{title1}}", noteTitle).replace("{{content1}}", this.truncateContent(noteContent, 2e3));
+    return await this.sendPrompt(prompt);
   }
   async analyzeMultimedia(type, content) {
     const prompt = this.settings.customPromptTemplates.multimedia.replace("{{type}}", type).replace("{{content}}", content);
@@ -1692,22 +1712,18 @@ var LLMService = class {
   async sendVolcEngineRequest(prompt) {
     const timestamp = Math.floor(Date.now() / 1e3);
     const requestId = `${timestamp}-${Math.random().toString(36).substring(2, 15)}`;
-    const response = await this.app.request({
-      url: this.volcEngineEndpoint,
-      method: "POST",
-      body: JSON.stringify({
-        model: this.settings.volcModel,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7
-      }),
+    const response = await import_axios.default.post(this.volcEngineEndpoint, {
+      model: this.settings.volcModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    }, {
       headers: {
         "Authorization": `Bearer ${this.settings.volcApiKey}`,
         "Content-Type": "application/json",
         "X-Request-Id": requestId
       }
     });
-    const responseData = JSON.parse(response);
-    return responseData.choices[0].message.content;
+    return response.data.choices[0].message.content;
   }
   async sendPrompt(prompt) {
     try {
@@ -1727,6 +1743,40 @@ var LLMService = class {
       console.error("LLM API\u8C03\u7528\u5931\u8D25:", error);
       throw error;
     }
+  }
+  async sendOpenAIPrompt(prompt) {
+    if (!this.settings.openaiApiKey) {
+      throw new Error("\u672A\u914D\u7F6EOpenAI API\u5BC6\u94A5");
+    }
+    const response = await import_axios.default.post(this.openaiEndpoint, {
+      model: this.settings.defaultModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 1e3
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.openaiApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.choices[0].message.content;
+  }
+  async sendClaudePrompt(prompt) {
+    if (!this.settings.claudeApiKey) {
+      throw new Error("\u672A\u914D\u7F6EClaude API\u5BC6\u94A5");
+    }
+    const response = await import_axios.default.post(this.claudeEndpoint, {
+      model: this.settings.defaultModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 1e3
+    }, {
+      headers: {
+        "x-api-key": this.settings.claudeApiKey,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.content[0].text;
   }
   async sendSiliconFlowPrompt(prompt) {
     if (!this.settings.siliconflowApiKey) {
@@ -1749,104 +1799,71 @@ var LLMService = class {
     if (!this.settings.volcApiKey) {
       throw new Error("\u672A\u914D\u7F6E\u706B\u5C71\u5F15\u64CEAPI\u5BC6\u94A5");
     }
-    const response = await import_axios.default.post(this.volcEngineEndpoint, {
-      model: this.settings.volcModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      max_tokens: 1e3
-    }, {
-      headers: {
-        "Authorization": `Bearer ${this.settings.volcApiKey}`,
-        "Content-Type": "application/json"
-      }
-    });
-    return response.data.choices[0].message.content;
+    try {
+      console.log("\u51C6\u5907\u5411\u706B\u5C71\u5F15\u64CE\u53D1\u9001\u8BF7\u6C42");
+      console.log("\u706B\u5C71\u5F15\u64CEAPI\u96C6\u6210\u5C1A\u672A\u5B8C\u5168\u89E3\u51B3\uFF0C\u76EE\u524D\u8FD4\u56DE\u6A21\u62DF\u6570\u636E");
+      return "\u6A21\u62DF\u7684\u706B\u5C71\u5F15\u64CEAPI\u54CD\u5E94\uFF1A" + prompt.substring(0, 50) + "...";
+    } catch (error) {
+      console.error("\u706B\u5C71\u5F15\u64CEAPI\u8C03\u7528\u5931\u8D25:", error);
+      throw new Error(`\u706B\u5C71\u5F15\u64CEAPI\u8C03\u7528\u5931\u8D25: ${error.message}`);
+    }
   }
   async analyzeNoteRelevance(title1, title2, content1, content2) {
-    const prompt = `\u8BF7\u5206\u6790\u4EE5\u4E0B\u4E24\u4E2A\u7B14\u8BB0\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF1A
-
-\u7B14\u8BB01\u6807\u9898\uFF1A${title1}
-\u7B14\u8BB01\u5185\u5BB9\uFF1A
-${content1}
-
-\u7B14\u8BB02\u6807\u9898\uFF1A${title2}
-\u7B14\u8BB02\u5185\u5BB9\uFF1A
-${content2}
-
-\u8BF7\u63D0\u4F9B\uFF1A
-1. \u5173\u8054\u6027\u89E3\u91CA\uFF08\u9996\u5148\u5206\u6790\u7B14\u8BB0\u6807\u9898\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF0C\u8FD9\u662F\u6700\u4E3B\u8981\u7684\u5224\u65AD\u4F9D\u636E\uFF1B\u7136\u540E\u53C2\u8003\u7B14\u8BB0\u5185\u5BB9\u4F5C\u4E3A\u8F85\u52A9\uFF0C\u8FDB\u4E00\u6B65\u7406\u89E3\u6807\u9898\u53EF\u80FD\u8868\u8FBE\u7684\u542B\u4E49\u3002\u5982\u679C\u6807\u9898\u4E4B\u95F4\u6CA1\u6709\u660E\u663E\u5173\u8054\uFF0C\u5219\u5206\u6790\u7B14\u8BB0\u5185\u5BB9\u53EF\u80FD\u60F3\u8981\u9610\u8FF0\u7684\u6838\u5FC3\u610F\u4E49\uFF0C\u518D\u8FDB\u884C\u5173\u8054\u5206\u6790\uFF09
-2. \u5173\u8054\u7A0B\u5EA6\u8BC4\u5206\uFF080-1\u4E4B\u95F4\u7684\u6570\u503C\uFF0C\u5176\u4E2D0\u8868\u793A\u5B8C\u5168\u65E0\u5173\uFF0C1\u8868\u793A\u9AD8\u5EA6\u76F8\u5173\uFF09\u3002
-
-\u8BF7\u4EE5JSON\u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u683C\u5F0F\u5982\u4E0B\uFF1A
-{
-  "explanation": "\u5173\u8054\u6027\u89E3\u91CA",
-  "relevanceScore": 0.5
-}
-
-\u6CE8\u610F\uFF1A\u8BF7\u76F4\u63A5\u8FD4\u56DEJSON\u683C\u5F0F\u7684\u7ED3\u679C\uFF0C\u4E0D\u8981\u5305\u542BMarkdown\u4EE3\u7801\u5757\u6807\u8BB0\u3002`;
+    var _a;
     try {
+      const promptTemplate = ((_a = this.settings.customPromptTemplates) == null ? void 0 : _a.noteRelevance) || '\u8BF7\u5206\u6790\u4EE5\u4E0B\u4E24\u7BC7\u7B14\u8BB0\u7684\u6F5C\u5728\u5173\u8054\u6027\u3002\n\n\u7B2C\u4E00\u7BC7\u7B14\u8BB0\u6807\u9898: {{title1}}\n\u5185\u5BB9: {{content1}}\n\n\u7B2C\u4E8C\u7BC7\u7B14\u8BB0\u6807\u9898: {{title2}}\n\u5185\u5BB9: {{content2}}\n\n\u8BF7\u63CF\u8FF0\u8FD9\u4E24\u7BC7\u7B14\u8BB0\u4E4B\u95F4\u53EF\u80FD\u5B58\u5728\u7684\u5173\u8054\uFF0C\u5E76\u7ED9\u51FA\u4E00\u4E2A0-1\u4E4B\u95F4\u7684\u5173\u8054\u5EA6\u5206\u6570\u3002\n\u8F93\u51FA\u683C\u5F0F\u4E3AJSON: {"explanation": "\u5173\u8054\u89E3\u91CA", "relevanceScore": \u5173\u8054\u5EA6\u5206\u6570}';
+      const prompt = promptTemplate.replace("{{title1}}", title1).replace("{{title2}}", title2).replace("{{content1}}", this.truncateContent(content1, 1e3)).replace("{{content2}}", this.truncateContent(content2, 1e3));
+      const hasApiKey = this.settings.defaultProvider === "siliconflow" && this.settings.siliconflowApiKey || this.settings.defaultProvider === "volc" && this.settings.volcApiKey;
+      if (!hasApiKey) {
+        const provider = this.settings.defaultProvider === "siliconflow" ? "SiliconFlow" : "\u706B\u5C71\u5F15\u64CE";
+        throw new Error(`\u672A\u914D\u7F6E${provider} API\u5BC6\u94A5\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6E\u6709\u6548\u7684API\u5BC6\u94A5`);
+      }
       const response = await this.sendPrompt(prompt);
-      const cleanResponse = response.replace(/^```json\n|^```\n|```$/gm, "").trim();
+      let result;
       try {
-        const result = JSON.parse(cleanResponse);
+        if (typeof response === "string") {
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            result = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error("\u54CD\u5E94\u4E2D\u672A\u627E\u5230JSON\u683C\u5F0F");
+          }
+        } else if (typeof response === "object") {
+          result = response;
+        } else {
+          throw new Error("\u65E0\u6CD5\u8BC6\u522B\u7684\u54CD\u5E94\u683C\u5F0F");
+        }
+        if (!result.explanation || typeof result.relevanceScore !== "number") {
+          throw new Error("\u54CD\u5E94\u683C\u5F0F\u4E0D\u7B26\u5408\u9884\u671F");
+        }
+        result.relevanceScore = Math.max(0, Math.min(1, result.relevanceScore));
         return {
-          explanation: result.explanation || "\u65E0\u6CD5\u83B7\u53D6\u5173\u8054\u6027\u89E3\u91CA",
-          relevanceScore: parseFloat(result.relevanceScore) || 0
+          explanation: result.explanation,
+          relevanceScore: result.relevanceScore
         };
       } catch (parseError) {
-        console.error("\u89E3\u6790LLM\u54CD\u5E94\u5931\u8D25:", parseError);
-        console.debug("\u6E05\u7406\u540E\u7684\u54CD\u5E94:", cleanResponse);
-        const explanationPatterns = [
-          /关联性解释[：:]*\s*(.+?)(?=[\n\r]|关联程度|$)/s,
-          /分析结果[：:]*\s*(.+?)(?=[\n\r]|关联程度|$)/s,
-          /两段内容(.+?)(?=[\n\r]|关联程度|$)/s,
-          /(.+?)(?=[\n\r]|关联程度评分|相关度为|相关性为|$)/s
-        ];
-        const scorePatterns = [
-          /关联程度[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
-          /相关度[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
-          /相关性[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
-          /评分[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s
-        ];
-        let explanation = "\u65E0\u6CD5\u89E3\u6790\u5173\u8054\u6027\u89E3\u91CA";
-        let relevanceScore = 0;
-        for (const pattern of explanationPatterns) {
-          const match = cleanResponse.match(pattern);
-          if (match && match[1]) {
-            explanation = match[1].trim();
-            break;
-          }
-        }
-        for (const pattern of scorePatterns) {
-          const match = cleanResponse.match(pattern);
-          if (match && match[1]) {
-            const score = parseFloat(match[1]);
-            if (!isNaN(score) && score >= 0 && score <= 1) {
-              relevanceScore = score;
-              break;
-            }
-          }
-        }
-        if (relevanceScore > 1) {
-          relevanceScore = relevanceScore > 10 ? relevanceScore / 100 : relevanceScore / 10;
-        }
-        return { explanation, relevanceScore };
+        console.error("\u89E3\u6790API\u54CD\u5E94\u65F6\u51FA\u9519:", parseError);
+        console.error("\u54CD\u5E94\u5185\u5BB9:", response);
+        throw new Error(`\u89E3\u6790\u54CD\u5E94\u5931\u8D25: ${parseError.message}`);
       }
     } catch (error) {
-      console.error("\u5206\u6790\u7B14\u8BB0\u5173\u8054\u6027\u5931\u8D25:", error);
-      return {
-        explanation: "API\u8C03\u7528\u5931\u8D25\uFF0C\u65E0\u6CD5\u5206\u6790\u5173\u8054\u6027",
-        relevanceScore: 0
-      };
+      console.error("\u5206\u6790\u7B14\u8BB0\u5173\u8054\u6027\u65F6\u51FA\u9519:", error);
+      throw error;
     }
+  }
+  truncateContent(content, maxLength) {
+    if (content.length <= maxLength) {
+      return content;
+    }
+    return content.substring(0, maxLength) + "...\uFF08\u5185\u5BB9\u5DF2\u622A\u65AD\uFF09";
   }
 };
 
 // src/services/note-link-service.ts
 var NoteLinkService = class {
-  constructor(app, llmService) {
+  constructor(settings, app) {
+    this.settings = settings;
     this.app = app;
-    this.llmService = llmService;
   }
   getExistingLinks(noteContent) {
     const linkRegex = /\[\[([^\]]+)\]\]/g;
@@ -1857,27 +1874,87 @@ var NoteLinkService = class {
     }
     return links;
   }
-  async analyzePotentialLinks(currentNote, maxNotesToAnalyze) {
-    const currentContent = await this.app.vault.read(currentNote);
-    const existingLinks = this.getExistingLinks(currentContent);
-    const allNotes = this.app.vault.getMarkdownFiles();
-    const notesToAnalyze = allNotes.filter((note) => note.path !== currentNote.path && !existingLinks.includes(note.basename)).slice(0, maxNotesToAnalyze);
-    const potentialLinks = [];
-    for (const note of notesToAnalyze) {
-      const noteContent = await this.app.vault.read(note);
-      const analysis = await this.analyzeRelevance(currentNote.basename, note.basename, currentContent, noteContent);
-      if (analysis.relevanceScore > 0) {
-        potentialLinks.push({
-          noteName: note.basename,
-          content: analysis.explanation,
-          relevanceScore: analysis.relevanceScore
-        });
+  async analyzePotentialLinks(currentFile, content) {
+    try {
+      if (!currentFile) {
+        throw new Error("\u5F53\u524D\u6587\u4EF6\u4E0D\u5B58\u5728");
       }
+      console.log(`\u5F00\u59CB\u5206\u6790\u7B14\u8BB0: ${currentFile.name}`);
+      if (!content) {
+        console.log("\u5C1D\u8BD5\u4ECE\u78C1\u76D8\u8BFB\u53D6\u7B14\u8BB0\u5185\u5BB9");
+        content = await this.app.vault.read(currentFile);
+      }
+      const existingLinks = this.getExistingLinks(content);
+      console.log(`\u7B14\u8BB0 ${currentFile.name} \u5185\u5BB9\u957F\u5EA6: ${content.length} \u5B57\u7B26\uFF0C\u5DF2\u6709\u94FE\u63A5\u6570: ${existingLinks.length}`);
+      const allNotes = this.app.vault.getMarkdownFiles();
+      const notesToAnalyze = allNotes.filter((note) => {
+        if (note.path === currentFile.path) {
+          return false;
+        }
+        if (existingLinks.includes(note.basename)) {
+          return false;
+        }
+        return true;
+      });
+      console.log(`\u603B\u7B14\u8BB0\u6570: ${allNotes.length}\uFF0C\u5F85\u5206\u6790\u7B14\u8BB0\u6570: ${notesToAnalyze.length}`);
+      const limitedNotes = this.limitNotesForAnalysis(notesToAnalyze, this.settings.maxNotesToAnalyze);
+      console.log(`\u9650\u5236\u540E\u7684\u5206\u6790\u7B14\u8BB0\u6570: ${limitedNotes.length}`);
+      if (limitedNotes.length === 0) {
+        console.log("\u6CA1\u6709\u9700\u8981\u5206\u6790\u7684\u7B14\u8BB0\uFF0C\u8FD4\u56DE\u7A7A\u7ED3\u679C");
+        return [];
+      }
+      const llmService = new LLMService(this.settings, this.app);
+      const potentialLinks = [];
+      console.log(`\u5F00\u59CB\u5206\u6790 ${limitedNotes.length} \u4E2A\u7B14\u8BB0\u7684\u76F8\u5173\u6027...`);
+      for (const note of limitedNotes) {
+        try {
+          const noteContent = await this.app.vault.read(note);
+          const relevanceResult = await llmService.analyzeNoteRelevance(currentFile.basename, note.basename, content, noteContent);
+          console.log(`\u7B14\u8BB0 "${note.basename}" \u76F8\u5173\u6027: ${relevanceResult.relevanceScore.toFixed(2)}`);
+          potentialLinks.push({
+            noteName: note.basename,
+            notePath: note.path,
+            relevanceScore: relevanceResult.relevanceScore,
+            content: relevanceResult.explanation
+          });
+        } catch (noteError) {
+          console.error(`\u5206\u6790\u7B14\u8BB0 ${note.basename} \u65F6\u51FA\u9519:`, noteError);
+        }
+      }
+      const sortedLinks = potentialLinks.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      const result = sortedLinks.slice(0, this.settings.maxLinksToGenerate || 5);
+      console.log(`\u5206\u6790\u5B8C\u6210\uFF0C\u6700\u7EC8\u751F\u6210\u7684\u6F5C\u5728\u94FE\u63A5\u6570: ${result.length}`);
+      return result;
+    } catch (error) {
+      console.error("\u5206\u6790\u6F5C\u5728\u94FE\u63A5\u65F6\u51FA\u9519:", error);
+      console.error("\u9519\u8BEF\u8BE6\u60C5:", error.message);
+      return [];
     }
-    return potentialLinks.sort((a, b) => b.relevanceScore - a.relevanceScore);
   }
   async analyzeRelevance(title1, title2, content1, content2) {
     return await this.llmService.analyzeNoteRelevance(title1, title2, content1, content2);
+  }
+  limitNotesForAnalysis(notes, maxCount) {
+    if (notes.length <= maxCount) {
+      return notes;
+    }
+    return this.getRandomElements(notes, maxCount);
+  }
+  getRandomElements(array, n) {
+    const result = new Array(n);
+    const len = array.length;
+    const taken = new Set();
+    if (n > len) {
+      return array.slice();
+    }
+    while (result.filter((x) => x !== void 0).length < n) {
+      const x = Math.floor(Math.random() * len);
+      if (!taken.has(x)) {
+        result[result.filter((x2) => x2 !== void 0).length] = array[x];
+        taken.add(x);
+      }
+    }
+    return result;
   }
 };
 
@@ -1901,13 +1978,39 @@ var LinkMuse = class extends import_obsidian3.Plugin {
     await this.loadSettings();
     this.addSettingTab(new LinkMuseSettingTab(this.app, this));
     this.llmService = new LLMService(this.settings, this.app);
-    this.noteLinkService = new NoteLinkService(this.app, this.llmService);
+    this.noteLinkService = new NoteLinkService(this.settings, this.app);
     this.registerView("linkmuse-sidebar", (leaf) => this.sidebarView = new SidebarView(leaf, this));
     this.addRibbonIcon("brain-cog", "LinkMuse", () => {
       this.activateView();
     });
     setupHeaderLogo(this);
     this.addCommands();
+  }
+  getSidebarView() {
+    const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+    if (sidebarLeaves.length > 0) {
+      const view = sidebarLeaves[0].view;
+      if (view instanceof SidebarView) {
+        return view;
+      }
+    }
+    return null;
+  }
+  showSidebarMessage(message, isError = false) {
+    const sidebarView = this.getSidebarView();
+    if (sidebarView) {
+      sidebarView.showResultMessage(message, isError);
+      return true;
+    }
+    return false;
+  }
+  showSidebarAnalyzing() {
+    const sidebarView = this.getSidebarView();
+    if (sidebarView) {
+      sidebarView.showAnalyzing();
+      return true;
+    }
+    return false;
   }
   async onunload() {
     console.log("\u5378\u8F7D LinkMuse \u63D2\u4EF6");
@@ -1943,123 +2046,115 @@ var LinkMuse = class extends import_obsidian3.Plugin {
     });
     this.addCommand({
       id: "analyze-note-combinations",
-      name: "\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054",
+      name: "\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054 (\u5F00\u53D1\u4E2D)",
       callback: () => this.analyzeNoteCombinations()
     });
     this.addCommand({
       id: "generate-inspiration",
-      name: "\u751F\u6210\u7075\u611F\u8DC3\u8FC1",
+      name: "\u751F\u6210\u7075\u611F\u8DC3\u8FC1 (\u5F00\u53D1\u4E2D)",
       callback: () => this.generateInspiration()
     });
     this.addCommand({
       id: "analyze-multimedia",
-      name: "\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9",
+      name: "\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9 (\u5F00\u53D1\u4E2D)",
       callback: () => this.analyzeMultimedia()
     });
   }
   async generateUnidirectionalLinks() {
     const activeView = this.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
-    if (!activeView || !activeView.file) {
-      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0", true);
-      } else {
+    const activeFile = this.app.workspace.getActiveFile();
+    if ((!activeView || !activeView.file) && !activeFile) {
+      if (!this.showSidebarMessage("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0", true)) {
         new import_obsidian3.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
       }
       return;
     }
-    const currentFile = activeView.file;
-    try {
-      let sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showAnalyzing();
+    const currentFile = (activeView == null ? void 0 : activeView.file) || activeFile;
+    if (!currentFile) {
+      if (!this.showSidebarMessage("\u65E0\u6CD5\u83B7\u53D6\u7B14\u8BB0\u4FE1\u606F", true)) {
+        new import_obsidian3.Notice("\u65E0\u6CD5\u83B7\u53D6\u7B14\u8BB0\u4FE1\u606F");
       }
-      const loadingNotice = new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...", 0);
-      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, this.settings.maxNotesToAnalyze);
+      return;
+    }
+    try {
+      this.showSidebarAnalyzing();
+      const loadingNotice = new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u6F5C\u5728\u94FE\u63A5...", 0);
+      const noteContent = await this.app.vault.read(currentFile);
+      console.log("\u5F00\u59CB\u5206\u6790\u6F5C\u5728\u94FE\u63A5");
+      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, noteContent);
       loadingNotice.hide();
-      if (potentialLinks.length === 0) {
-        sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-        sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-        if (sidebarView && sidebarView instanceof SidebarView) {
-          sidebarView.showResultMessage("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0", true);
-        } else {
-          new import_obsidian3.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
+      if (!potentialLinks || potentialLinks.length === 0) {
+        if (!this.showSidebarMessage("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054", true)) {
+          new import_obsidian3.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054");
         }
         return;
       }
       let output = "## \u6F5C\u5728\u7684\u7B14\u8BB0\u5173\u8054\n\n";
-      potentialLinks.forEach((link) => {
+      potentialLinks.forEach((link, index) => {
         output += `\u5F53\u524D\u7B14\u8BB0\u548C[[${link.noteName}]]\u6F5C\u5728\u7684\u5173\u8054\uFF1A${link.content}\uFF0C\u5173\u8054\u7A0B\u5EA6\uFF1A${link.relevanceScore}
 
 `;
       });
-      const editor = activeView.editor;
-      const currentContent = editor.getValue();
-      editor.setValue(currentContent + "\n\n" + output);
-      sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
+      if (activeView && activeView.editor) {
+        const editor = activeView.editor;
+        const currentContent = editor.getValue();
+        const newContent = currentContent + "\n\n" + output;
+        editor.setValue(newContent);
+        try {
+          await this.app.vault.modify(currentFile, newContent);
+        } catch (saveError) {
+          console.error("\u4FDD\u5B58\u6587\u4EF6\u53D8\u66F4\u5931\u8D25:", saveError);
+          console.error("\u9519\u8BEF\u8BE6\u60C5:", saveError.message);
+        }
       } else {
-        new import_obsidian3.Notice(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
+        try {
+          const fileContent = await this.app.vault.read(currentFile);
+          const newContent = fileContent + "\n\n" + output;
+          await this.app.vault.modify(currentFile, newContent);
+        } catch (readError) {
+          console.error("\u8BFB\u53D6\u6216\u4FEE\u6539\u6587\u4EF6\u5931\u8D25:", readError);
+          console.error("\u9519\u8BEF\u8BE6\u60C5:", readError.message);
+          if (!this.showSidebarMessage("\u65E0\u6CD5\u66F4\u65B0\u7B14\u8BB0\u5185\u5BB9", true)) {
+            new import_obsidian3.Notice("\u65E0\u6CD5\u66F4\u65B0\u7B14\u8BB0\u5185\u5BB9\uFF0C\u4F46\u5206\u6790\u7ED3\u679C\u5DF2\u751F\u6210");
+          }
+        }
+      }
+      const successMessage = `\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`;
+      let sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
+      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
+      if (sidebarView instanceof SidebarView) {
+        sidebarView.showResultMessage(successMessage);
+      } else {
+        new import_obsidian3.Notice(successMessage);
       }
     } catch (error) {
       console.error("\u751F\u6210\u5355\u5411\u5173\u8054\u65F6\u51FA\u9519:", error);
-      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519", true);
-      } else {
+      console.error("\u9519\u8BEF\u8BE6\u60C5:", error.message);
+      if (!this.showSidebarMessage("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519", true)) {
         new import_obsidian3.Notice("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
       }
     }
   }
-  async analyzeNoteCombinations() {
-    new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054...");
-  }
   async generateInspiration() {
-    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
-    if (!activeView || !activeView.file) {
-      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0", true);
-      } else {
-        new import_obsidian3.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
-      }
-      return;
+    console.log("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u5DF2\u51BB\u7ED3\uFF0C\u663E\u793A\u5F00\u53D1\u4E2D\u63D0\u793A");
+    if (!this.showSidebarMessage("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85")) {
+      new import_obsidian3.Notice("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85");
     }
-    try {
-      let sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      let sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showAnalyzing();
-      }
-      const loadingNotice = new import_obsidian3.Notice("\u6B63\u5728\u751F\u6210\u7075\u611F\u8DC3\u8FC1...", 0);
-      await new Promise((resolve) => setTimeout(resolve, 2e3));
-      loadingNotice.hide();
-      sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage("\u7075\u611F\u8DC3\u8FC1\u529F\u80FD\u5F00\u53D1\u4E2D...");
-      } else {
-        new import_obsidian3.Notice("\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u5B8C\u6210");
-      }
-    } catch (error) {
-      console.error("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519:", error);
-      const sidebarLeaves = this.app.workspace.getLeavesOfType("linkmuse-sidebar");
-      const sidebarView = sidebarLeaves.length > 0 ? sidebarLeaves[0].view : null;
-      if (sidebarView && sidebarView instanceof SidebarView) {
-        sidebarView.showResultMessage("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519", true);
-      } else {
-        new import_obsidian3.Notice("\u751F\u6210\u7075\u611F\u8DC3\u8FC1\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
-      }
+    return;
+  }
+  async analyzeNoteCombinations() {
+    console.log("\u7B14\u8BB0\u7EC4\u5408\u5173\u8054\u5206\u6790\u529F\u80FD\u5DF2\u51BB\u7ED3\uFF0C\u663E\u793A\u5F00\u53D1\u4E2D\u63D0\u793A");
+    if (!this.showSidebarMessage("\u7B14\u8BB0\u7EC4\u5408\u5173\u8054\u5206\u6790\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85")) {
+      new import_obsidian3.Notice("\u7B14\u8BB0\u7EC4\u5408\u5173\u8054\u5206\u6790\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85");
     }
+    return;
   }
   async analyzeMultimedia() {
-    new import_obsidian3.Notice("\u6B63\u5728\u5206\u6790\u591A\u5A92\u4F53\u5185\u5BB9...");
+    console.log("\u591A\u5A92\u4F53\u5185\u5BB9\u5206\u6790\u529F\u80FD\u5DF2\u51BB\u7ED3\uFF0C\u663E\u793A\u5F00\u53D1\u4E2D\u63D0\u793A");
+    if (!this.showSidebarMessage("\u591A\u5A92\u4F53\u5185\u5BB9\u5206\u6790\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85")) {
+      new import_obsidian3.Notice("\u591A\u5A92\u4F53\u5185\u5BB9\u5206\u6790\u529F\u80FD\u6B63\u5728\u5F00\u53D1\u4E2D\uFF0C\u656C\u8BF7\u671F\u5F85");
+    }
+    return;
   }
 };
 var LinkMuseSettingTab = class extends import_obsidian3.PluginSettingTab {
@@ -2133,12 +2228,20 @@ var LinkMuseSettingTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.settings.maxNotesToAnalyze = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian3.Setting(containerEl).setName("\u751F\u6210\u94FE\u63A5\u6570\u91CF").setDesc("\u8BBE\u7F6E\u667A\u80FD\u5173\u8054\u751F\u6210\u7684\u6700\u5927\u94FE\u63A5\u6570\u91CF").addSlider((slider) => slider.setLimits(1, 10, 1).setValue(this.plugin.settings.maxLinksToGenerate).setDynamicTooltip().onChange(async (value) => {
+      this.plugin.settings.maxLinksToGenerate = value;
+      await this.plugin.saveSettings();
+    }));
     new import_obsidian3.Setting(containerEl).setName("\u4FDD\u5B58\u601D\u7EF4\u94FE").setDesc("\u662F\u5426\u4FDD\u5B58LLM\u5206\u6790\u8FC7\u7A0B\u7684\u601D\u7EF4\u94FE").addToggle((toggle) => toggle.setValue(this.plugin.settings.saveChainOfThought).onChange(async (value) => {
       this.plugin.settings.saveChainOfThought = value;
       await this.plugin.saveSettings();
     }));
     new import_obsidian3.Setting(containerEl).setName("\u7075\u611F\u751F\u6210\u6570\u91CF").setDesc("\u6BCF\u6B21\u7075\u611F\u8DC3\u8FC1\u751F\u6210\u7684\u7075\u611F\u6570\u91CF").addSlider((slider) => slider.setLimits(1, 10, 1).setValue(this.plugin.settings.inspirationCount).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.inspirationCount = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian3.Setting(containerEl).setName("\u4F7F\u7528\u5B8C\u6574\u7B14\u8BB0\u5185\u5BB9").setDesc("\u662F\u5426\u4F7F\u7528\u5B8C\u6574\u7B14\u8BB0\u5185\u5BB9\u8FDB\u884C\u5206\u6790\uFF08\u5F00\u542F\u53EF\u80FD\u4F1A\u5BFC\u81F4API\u8BF7\u6C42\u6D88\u8017\u66F4\u591AToken\uFF09").addToggle((toggle) => toggle.setValue(this.plugin.settings.useFullContent).onChange(async (value) => {
+      this.plugin.settings.useFullContent = value;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u9AD8\u7EA7\u8BBE\u7F6E" });
