@@ -131,22 +131,20 @@ linkmuse/
 ├── src/                   # 源代码目录
 │   ├── main.ts            # 插件入口点
 │   ├── settings.ts        # 设置面板实现
-│   ├── models/            # 数据模型定义
 │   ├── services/          # LLM API和服务层
-│   ├── ui/                # 界面组件（Svelte）
-│   └── utils/             # 工具函数
-├── styles.css             # 插件样式
-├── manifest.json          # 插件清单
-├── package.json           # npm配置
-├── tsconfig.json          # TypeScript配置
-└── README.md              # 项目文档
+│   └── ui/                # 界面组件
+├── esbuild.config.mjs     # esbuild配置文件
+├── main.js               # 编译后的主文件
+├── manifest.json         # 插件清单
+├── package.json          # npm配置
+├── tsconfig.json         # TypeScript配置
+└── README.md             # 项目文档
 ```
 
 - **依赖管理**：
   - 核心依赖：`obsidian` API
-  - UI框架：`svelte`
-  - 网络请求：`axios`/`fetch`
-  - 开发工具：`typescript`、`rollup`/`esbuild`
+  - 构建工具：`esbuild`
+  - 开发工具：`typescript`
 
 ### 开发工作流
 - **构建与调试**：
