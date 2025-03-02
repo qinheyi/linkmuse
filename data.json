@@ -5,9 +5,9 @@
   "volcApiKey": "98dece6d-eefb-4729-bd2e-4ca2ac7f3d94",
   "defaultModel": "gpt-4",
   "defaultProvider": "siliconflow",
-  "maxNotesToAnalyze": 50,
+  "maxNotesToAnalyze": 5,
   "saveChainOfThought": true,
-  "inspirationCount": 10,
+  "inspirationCount": 1,
   "debugMode": false,
   "customPromptTemplates": {
     "bidirectionalLinks": "分析以下笔记内容，找出它们之间可能存在的关联：\n{{notes}}",

@@ -1575,6 +1575,174 @@ var LLMService = class {
     const responseData = JSON.parse(response);
     return responseData.choices[0].message.content;
   }
+  async sendPrompt(prompt) {
+    try {
+      switch (this.settings.defaultProvider) {
+        case "openai":
+          return await this.sendOpenAIPrompt(prompt);
+        case "claude":
+          return await this.sendClaudePrompt(prompt);
+        case "siliconflow":
+          return await this.sendSiliconFlowPrompt(prompt);
+        case "volc":
+          return await this.sendVolcPrompt(prompt);
+        default:
+          throw new Error("\u672A\u77E5\u7684LLM\u63D0\u4F9B\u5546");
+      }
+    } catch (error) {
+      console.error("LLM API\u8C03\u7528\u5931\u8D25:", error);
+      throw error;
+    }
+  }
+  async sendSiliconFlowPrompt(prompt) {
+    if (!this.settings.siliconflowApiKey) {
+      throw new Error("\u672A\u914D\u7F6E\u7845\u57FA\u6D41\u52A8API\u5BC6\u94A5");
+    }
+    const response = await import_axios.default.post(this.siliconflowEndpoint, {
+      model: this.settings.siliconflowModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 1e3
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.siliconflowApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.choices[0].message.content;
+  }
+  async sendVolcPrompt(prompt) {
+    if (!this.settings.volcApiKey) {
+      throw new Error("\u672A\u914D\u7F6E\u706B\u5C71\u5F15\u64CEAPI\u5BC6\u94A5");
+    }
+    const response = await import_axios.default.post(this.volcEngineEndpoint, {
+      model: this.settings.volcModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 1e3
+    }, {
+      headers: {
+        "Authorization": `Bearer ${this.settings.volcApiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.choices[0].message.content;
+  }
+  async analyzeNoteRelevance(content1, content2) {
+    const prompt = `\u8BF7\u5206\u6790\u4EE5\u4E0B\u4E24\u4E2A\u7B14\u8BB0\u4E4B\u95F4\u7684\u5173\u8054\u6027\uFF1A
+
+\u7B14\u8BB01\uFF1A
+${content1}
+
+\u7B14\u8BB02\uFF1A
+${content2}
+
+\u8BF7\u63D0\u4F9B\uFF1A
+1. \u5173\u8054\u6027\u89E3\u91CA\uFF08\u7B80\u660E\u627C\u8981\u8BF4\u660E\u4E24\u4E2A\u7B14\u8BB0\u4E4B\u95F4\u7684\u5173\u8054\uFF0C\u5FC5\u987B\u4F7F\u7528\u7B14\u8BB0\u7684\u5B9E\u9645\u4E3B\u9898\u540D\u79F0\uFF0C\u800C\u4E0D\u662F\u4F7F\u7528"\u5185\u5BB91"/"\u5185\u5BB92
+2. \u5173\u8054\u7A0B\u5EA6\u8BC4\u5206\uFF080-1\u4E4B\u95F4\u7684\u6570\u503C\uFF0C\u5176\u4E2D0\u8868\u793A\u5B8C\u5168\u65E0\u5173\uFF0C1\u8868\u793A\u9AD8\u5EA6\u76F8\u5173\uFF09
+
+\u8BF7\u4EE5JSON\u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u683C\u5F0F\u5982\u4E0B\uFF1A
+{
+  "explanation": "\u5173\u8054\u6027\u89E3\u91CA",
+  "relevanceScore": 0.5
+}
+
+\u6CE8\u610F\uFF1A\u8BF7\u76F4\u63A5\u8FD4\u56DEJSON\u683C\u5F0F\u7684\u7ED3\u679C\uFF0C\u4E0D\u8981\u5305\u542BMarkdown\u4EE3\u7801\u5757\u6807\u8BB0\u3002`;
+    try {
+      const response = await this.sendPrompt(prompt);
+      const cleanResponse = response.replace(/^```json\n|^```\n|```$/gm, "").trim();
+      try {
+        const result = JSON.parse(cleanResponse);
+        return {
+          explanation: result.explanation || "\u65E0\u6CD5\u83B7\u53D6\u5173\u8054\u6027\u89E3\u91CA",
+          relevanceScore: parseFloat(result.relevanceScore) || 0
+        };
+      } catch (parseError) {
+        console.error("\u89E3\u6790LLM\u54CD\u5E94\u5931\u8D25:", parseError);
+        console.debug("\u6E05\u7406\u540E\u7684\u54CD\u5E94:", cleanResponse);
+        const explanationPatterns = [
+          /关联性解释[：:]*\s*(.+?)(?=[\n\r]|关联程度|$)/s,
+          /分析结果[：:]*\s*(.+?)(?=[\n\r]|关联程度|$)/s,
+          /两段内容(.+?)(?=[\n\r]|关联程度|$)/s,
+          /(.+?)(?=[\n\r]|关联程度评分|相关度为|相关性为|$)/s
+        ];
+        const scorePatterns = [
+          /关联程度[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
+          /相关度[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
+          /相关性[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s,
+          /评分[：:]*\s*(0\.\d+|\d+\.\d+|\d+)/s
+        ];
+        let explanation = "\u65E0\u6CD5\u89E3\u6790\u5173\u8054\u6027\u89E3\u91CA";
+        let relevanceScore = 0;
+        for (const pattern of explanationPatterns) {
+          const match = cleanResponse.match(pattern);
+          if (match && match[1]) {
+            explanation = match[1].trim();
+            break;
+          }
+        }
+        for (const pattern of scorePatterns) {
+          const match = cleanResponse.match(pattern);
+          if (match && match[1]) {
+            const score = parseFloat(match[1]);
+            if (!isNaN(score) && score >= 0 && score <= 1) {
+              relevanceScore = score;
+              break;
+            }
+          }
+        }
+        if (relevanceScore > 1) {
+          relevanceScore = relevanceScore > 10 ? relevanceScore / 100 : relevanceScore / 10;
+        }
+        return { explanation, relevanceScore };
+      }
+    } catch (error) {
+      console.error("\u5206\u6790\u7B14\u8BB0\u5173\u8054\u6027\u5931\u8D25:", error);
+      return {
+        explanation: "API\u8C03\u7528\u5931\u8D25\uFF0C\u65E0\u6CD5\u5206\u6790\u5173\u8054\u6027",
+        relevanceScore: 0
+      };
+    }
+  }
+};
+
+// src/services/note-link-service.ts
+var NoteLinkService = class {
+  constructor(app, llmService) {
+    this.app = app;
+    this.llmService = llmService;
+  }
+  getExistingLinks(noteContent) {
+    const linkRegex = /\[\[([^\]]+)\]\]/g;
+    const links = [];
+    let match;
+    while ((match = linkRegex.exec(noteContent)) !== null) {
+      links.push(match[1]);
+    }
+    return links;
+  }
+  async analyzePotentialLinks(currentNote, maxNotesToAnalyze) {
+    const currentContent = await this.app.vault.read(currentNote);
+    const existingLinks = this.getExistingLinks(currentContent);
+    const allNotes = this.app.vault.getMarkdownFiles();
+    const notesToAnalyze = allNotes.filter((note) => note.path !== currentNote.path && !existingLinks.includes(note.basename)).slice(0, maxNotesToAnalyze);
+    const potentialLinks = [];
+    for (const note of notesToAnalyze) {
+      const noteContent = await this.app.vault.read(note);
+      const analysis = await this.analyzeRelevance(currentContent, noteContent);
+      if (analysis.relevanceScore > 0) {
+        potentialLinks.push({
+          noteName: note.basename,
+          content: analysis.explanation,
+          relevanceScore: analysis.relevanceScore
+        });
+      }
+    }
+    return potentialLinks.sort((a, b) => b.relevanceScore - a.relevanceScore);
+  }
+  async analyzeRelevance(content1, content2) {
+    return await this.llmService.analyzeNoteRelevance(content1, content2);
+  }
 };
 
 // src/ui/header.ts
@@ -1599,6 +1767,7 @@ var LinkMuse = class extends import_obsidian2.Plugin {
     await this.loadSettings();
     this.addSettingTab(new LinkMuseSettingTab(this.app, this));
     this.llmService = new LLMService(this.settings, this.app);
+    this.noteLinkService = new NoteLinkService(this.app, this.llmService);
     this.registerView("linkmuse-sidebar", (leaf) => this.sidebarView = new SidebarView(leaf, this));
     this.addRibbonIcon("brain-cog", "LinkMuse", () => {
       this.activateView();
@@ -1658,7 +1827,32 @@ var LinkMuse = class extends import_obsidian2.Plugin {
       new import_obsidian2.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
       return;
     }
-    new import_obsidian2.Notice("\u6B63\u5728\u751F\u6210\u667A\u80FD\u53CC\u5411\u5173\u8054...");
+    const currentFile = activeView.file;
+    if (!currentFile) {
+      new import_obsidian2.Notice("\u65E0\u6CD5\u83B7\u53D6\u5F53\u524D\u7B14\u8BB0\u6587\u4EF6");
+      return;
+    }
+    try {
+      new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...");
+      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, this.settings.maxNotesToAnalyze);
+      if (potentialLinks.length === 0) {
+        new import_obsidian2.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
+        return;
+      }
+      let output = "## \u6F5C\u5728\u7684\u7B14\u8BB0\u5173\u8054\n\n";
+      potentialLinks.forEach((link) => {
+        output += `\u5F53\u524D\u7B14\u8BB0\u548C[[${link.noteName}]]\u6F5C\u5728\u7684\u5173\u8054\uFF1A${link.content}\uFF0C\u5173\u8054\u7A0B\u5EA6\uFF1A${link.relevanceScore}
+
+`;
+      });
+      const editor = activeView.editor;
+      const currentContent = editor.getValue();
+      editor.setValue(currentContent + "\n\n" + output);
+      new import_obsidian2.Notice(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
+    } catch (error) {
+      console.error("\u751F\u6210\u53CC\u5411\u5173\u8054\u65F6\u51FA\u9519:", error);
+      new import_obsidian2.Notice("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
+    }
   }
   async analyzeNoteCombinations() {
     new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u7EC4\u5408\u5173\u8054...");

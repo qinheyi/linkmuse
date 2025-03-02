@@ -2,12 +2,14 @@ import { Plugin, PluginSettingTab, App, Setting, Notice, Modal, MarkdownView } f
 import { DEFAULT_SETTINGS, LinkMuseSettings } from './settings';
 import { SidebarView } from './ui/sidebar';
 import { LLMService } from './services/llm-service';
+import { NoteLinkService } from './services/note-link-service';
 import { setupHeaderLogo } from './ui/header';
 
 export default class LinkMuse extends Plugin {
   settings: LinkMuseSettings;
   sidebarView: SidebarView;
   llmService: LLMService;
+  noteLinkService: NoteLinkService;
 
   async onload() {
     console.log('加载 LinkMuse 插件');
@@ -20,6 +22,9 @@ export default class LinkMuse extends Plugin {
     
     // 初始化LLM服务
     this.llmService = new LLMService(this.settings, this.app);
+    
+    // 初始化笔记关联服务
+    this.noteLinkService = new NoteLinkService(this.app, this.llmService);
     
     // 注册视图
     this.registerView(
@@ -109,8 +114,40 @@ export default class LinkMuse extends Plugin {
       return;
     }
     
-    new Notice('正在生成智能双向关联...');
-    // 实际功能将在后续实现
+    const currentFile = activeView.file;
+    if (!currentFile) {
+      new Notice('无法获取当前笔记文件');
+      return;
+    }
+    
+    try {
+      new Notice('正在分析笔记关联...');
+      const potentialLinks = await this.noteLinkService.analyzePotentialLinks(
+        currentFile,
+        this.settings.maxNotesToAnalyze
+      );
+    
+      if (potentialLinks.length === 0) {
+        new Notice('未找到潜在关联的笔记');
+        return;
+      }
+    
+      // 构建输出内容
+      let output = '## 潜在的笔记关联\n\n';
+      potentialLinks.forEach(link => {
+        output += `当前笔记和[[${link.noteName}]]潜在的关联：${link.content}，关联程度：${link.relevanceScore}\n\n`;
+      });
+    
+      // 将结果插入到当前笔记末尾
+      const editor = activeView.editor;
+      const currentContent = editor.getValue();
+      editor.setValue(currentContent + '\n\n' + output);
+    
+      new Notice(`已找到${potentialLinks.length}个潜在关联`);
+    } catch (error) {
+      console.error('生成双向关联时出错:', error);
+      new Notice('生成关联时出错，请查看控制台获取详细信息');
+    }
   }
   
   async analyzeNoteCombinations() {
