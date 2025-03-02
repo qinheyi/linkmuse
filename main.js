@@ -1362,11 +1362,16 @@ var SidebarView = class extends import_obsidian.ItemView {
     });
     const actionSection = mainSection.createDiv({ cls: "linkmuse-actions" });
     const linkButton = actionSection.createEl("button", {
-      text: "\u751F\u6210\u667A\u80FD\u5173\u8054",
+      text: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054",
       cls: "mod-cta"
     });
     linkButton.addEventListener("click", () => {
-      this.plugin.generateBidirectionalLinks();
+      const activeView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
+      if (!activeView || !activeView.file) {
+        new import_obsidian.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
+        return;
+      }
+      this.plugin.generateUnidirectionalLinks();
     });
     const inspirationButton = actionSection.createEl("button", {
       text: "\u7075\u611F\u8DC3\u8FC1",
@@ -1803,9 +1808,9 @@ var LinkMuse = class extends import_obsidian2.Plugin {
   }
   addCommands() {
     this.addCommand({
-      id: "generate-bidirectional-links",
-      name: "\u751F\u6210\u667A\u80FD\u53CC\u5411\u5173\u8054",
-      callback: () => this.generateBidirectionalLinks()
+      id: "generate-unidirectional-links",
+      name: "\u751F\u6210\u667A\u80FD\u5355\u5411\u5173\u8054",
+      callback: () => this.generateUnidirectionalLinks()
     });
     this.addCommand({
       id: "analyze-note-combinations",
@@ -1823,20 +1828,17 @@ var LinkMuse = class extends import_obsidian2.Plugin {
       callback: () => this.analyzeMultimedia()
     });
   }
-  async generateBidirectionalLinks() {
+  async generateUnidirectionalLinks() {
     const activeView = this.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView);
-    if (!activeView) {
+    if (!activeView || !activeView.file) {
       new import_obsidian2.Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u7B14\u8BB0");
       return;
     }
     const currentFile = activeView.file;
-    if (!currentFile) {
-      new import_obsidian2.Notice("\u65E0\u6CD5\u83B7\u53D6\u5F53\u524D\u7B14\u8BB0\u6587\u4EF6");
-      return;
-    }
     try {
-      new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...");
+      const loadingNotice = new import_obsidian2.Notice("\u6B63\u5728\u5206\u6790\u7B14\u8BB0\u5173\u8054...", 0);
       const potentialLinks = await this.noteLinkService.analyzePotentialLinks(currentFile, this.settings.maxNotesToAnalyze);
+      loadingNotice.hide();
       if (potentialLinks.length === 0) {
         new import_obsidian2.Notice("\u672A\u627E\u5230\u6F5C\u5728\u5173\u8054\u7684\u7B14\u8BB0");
         return;
@@ -1852,7 +1854,7 @@ var LinkMuse = class extends import_obsidian2.Plugin {
       editor.setValue(currentContent + "\n\n" + output);
       new import_obsidian2.Notice(`\u5DF2\u627E\u5230${potentialLinks.length}\u4E2A\u6F5C\u5728\u5173\u8054`);
     } catch (error) {
-      console.error("\u751F\u6210\u53CC\u5411\u5173\u8054\u65F6\u51FA\u9519:", error);
+      console.error("\u751F\u6210\u5355\u5411\u5173\u8054\u65F6\u51FA\u9519:", error);
       new import_obsidian2.Notice("\u751F\u6210\u5173\u8054\u65F6\u51FA\u9519\uFF0C\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u83B7\u53D6\u8BE6\u7EC6\u4FE1\u606F");
     }
   }

@@ -80,9 +80,9 @@ export default class LinkMuse extends Plugin {
   addCommands() {
     // 智能双向关联命令
     this.addCommand({
-      id: 'generate-bidirectional-links',
-      name: '生成智能双向关联',
-      callback: () => this.generateBidirectionalLinks(),
+      id: 'generate-unidirectional-links',
+      name: '生成智能单向关联',
+      callback: () => this.generateUnidirectionalLinks(),
     });
     
     // 组合关联分析命令
@@ -107,25 +107,26 @@ export default class LinkMuse extends Plugin {
     });
   }
   
-  async generateBidirectionalLinks() {
+  async generateUnidirectionalLinks() {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) {
+    if (!activeView || !activeView.file) {
       new Notice('请先打开一个笔记');
       return;
     }
     
     const currentFile = activeView.file;
-    if (!currentFile) {
-      new Notice('无法获取当前笔记文件');
-      return;
-    }
     
     try {
-      new Notice('正在分析笔记关联...');
+      // 创建持续显示的加载提示框
+      const loadingNotice = new Notice('正在分析笔记关联...', 0);
+      
       const potentialLinks = await this.noteLinkService.analyzePotentialLinks(
         currentFile,
         this.settings.maxNotesToAnalyze
       );
+      
+      // 关闭加载提示框
+      loadingNotice.hide();
     
       if (potentialLinks.length === 0) {
         new Notice('未找到潜在关联的笔记');
@@ -145,7 +146,7 @@ export default class LinkMuse extends Plugin {
     
       new Notice(`已找到${potentialLinks.length}个潜在关联`);
     } catch (error) {
-      console.error('生成双向关联时出错:', error);
+      console.error('生成单向关联时出错:', error);
       new Notice('生成关联时出错，请查看控制台获取详细信息');
     }
   }

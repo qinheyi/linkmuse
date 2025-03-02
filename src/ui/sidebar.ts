@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, ButtonComponent } from 'obsidian';
+import { ItemView, WorkspaceLeaf, ButtonComponent, Notice, MarkdownView } from 'obsidian';
 import LinkMuse from '../main';
 import { LLM_PROVIDERS } from '../settings';
 
@@ -85,13 +85,19 @@ export class SidebarView extends ItemView {
     // 功能按钮区域
     const actionSection = mainSection.createDiv({ cls: 'linkmuse-actions' });
     
-    // 创建智能关联按钮
+    // 创建智能单向关联按钮
     const linkButton = actionSection.createEl('button', { 
-      text: '生成智能关联',
+      text: '生成智能单向关联',
       cls: 'mod-cta'
     });
     linkButton.addEventListener('click', () => {
-      this.plugin.generateBidirectionalLinks();
+      // 获取当前活动的笔记视图
+      const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+      if (!activeView || !activeView.file) {
+        new Notice('请先打开一个笔记');
+        return;
+      }
+      this.plugin.generateUnidirectionalLinks();
     });
     
     // 创建灵感跃迁按钮
